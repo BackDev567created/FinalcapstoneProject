@@ -1,0 +1,20 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+, "app/screen/LoginScreen.tsx" , "app/screen/SigninScreen.tsx", "app/index.tsx", "navigation.d.ts", "app/component/MainDrawer.tsx", "app/user/HomeScreen.js", "app/navigation/index.tsx", "app/tabs/Dashboard.tsx" ]
+}
+
