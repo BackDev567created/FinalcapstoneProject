@@ -53,68 +53,79 @@ const HomeScreen = () => {
     };
   }, []);
 
-  const fetchProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('id', { ascending: false });
+const fetchProducts = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('id', { ascending: false });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const productsWithState = data.map(item => ({
-        ...item,
-        qty: 0,
-        opt: 'swap' as 'swap' | 'new',
-        image: item.image_url || null, // only use URL
-      }));
+    const productsWithState = data.map(item => ({
+      ...item,
+      qty: 0,
+      opt: 'swap' as 'swap' | 'new',
+      // ✅ keep only Supabase image_url
+      image_url: item.image_url || null,
+    }));
 
-      setProducts(productsWithState);
-      setLoading(false);
-    } catch (err: any) {
-      console.error('Failed to fetch products:', err.message);
-      Alert.alert('Error', 'Failed to fetch products');
-      setLoading(false);
-    }
+    setProducts(productsWithState);
+    setLoading(false);
+  } catch (err: any) {
+    console.error('Failed to fetch products:', err.message);
+    Alert.alert('Error', 'Failed to fetch products');
+    setLoading(false);
+  }
+};
+
+const handleAddToCart = async (item: any) => {
+  if (item.qty <= 0) {
+    Alert.alert('Quantity required', 'Please select at least 1 item.');
+    return;
+  }
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    Alert.alert('Error', 'You must be logged in to add items to the cart.');
+    return;
+  }
+
+  const adjustedPrice = item.opt === 'swap' ? 100 : item.price;
+  const totalPrice = adjustedPrice * item.qty;
+  const weightValue = parseFloat(item.kilograms?.toString() || '0');
+
+  const payload = {
+    user_id: user.id,
+    quantity: item.qty,
+    totalprice: totalPrice,
+    renewaltype: item.opt,
+    kilograms: weightValue,
+    productname: item.name,
+    // ✅ save image_url to addtocart table
+    image_url: item.image_url || null,
   };
 
-  const handleAddToCart = async (item: any) => {
-    if (item.qty <= 0) {
-      Alert.alert('Quantity required', 'Please select at least 1 item.');
-      return;
-    }
+  try {
+    const { error } = await supabase.from('addtocart').insert([payload]);
+    if (error) throw error;
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      Alert.alert('Error', 'You must be logged in to add items to the cart.');
-      return;
-    }
-
-    const adjustedPrice = item.opt === 'swap' ? 100 : item.price;
-    const totalPrice = adjustedPrice * item.qty;
-    const weightValue = parseFloat(item.kilograms?.toString() || '0');
-
-    const payload = {
-      user_id: user.id,
+    // ✅ pass image_url when storing in local cart
+    addToCart({
+      ...item,
       quantity: item.qty,
-      totalprice: totalPrice,
-      renewaltype: item.opt,
-      kilograms: weightValue,
-      productname: item.name,
-      image_url: item.image || undefined,
-    };
+      option: item.opt,
+      price: adjustedPrice,
+      image_url: item.image_url || null,
+    });
 
-    try {
-      const { error } = await supabase.from('addtocart').insert([payload]);
-      if (error) throw error;
+    Alert.alert('✅ Success', `${item.qty}x ${item.name} (${item.opt}) added to cart`);
+  } catch (err: any) {
+    console.error('Add to cart error:', err.message);
+    Alert.alert('Error', 'Failed to add to cart');
+  }
+};
 
-      addToCart({ ...item, quantity: item.qty, option: item.opt, price: adjustedPrice });
-      Alert.alert('✅ Success', `${item.qty}x ${item.name} (${item.opt}) added to cart`);
-    } catch (err: any) {
-      console.error('Add to cart error:', err.message);
-      Alert.alert('Error', 'Failed to add to cart');
-    }
-  };
 
   if (loading) {
     return (
@@ -145,17 +156,23 @@ const HomeScreen = () => {
           {products.map((item, index) => (
             <Card key={index} style={styles.card}>
               <Card.Content style={styles.content}>
-                {item.image ? (
-                  <Image
-                    source={{ uri: item.image }}
-                    style={styles.image}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View style={[styles.image, { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }]}>
-                    <Text>No Image</Text>
-                  </View>
-                )}
+    {item.image_url ? (
+  <Image
+    source={{ uri: item.image_url }}
+    style={styles.image}
+    resizeMode="contain"
+  />
+) : (
+  <View
+    style={[
+      styles.image,
+      { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }
+    ]}
+  >
+    <Text>No Image</Text>
+  </View>
+)}
+
 
                 <View style={styles.infoContainer}>
                   <View style={styles.textSection}>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// app/user/PaymentScreen.tsx
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,59 +7,134 @@ import {
   SafeAreaView,
   StyleSheet,
   Image,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Entypo } from '@expo/vector-icons';
-
-type RadioButtonProps = {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-};
-
-const RadioButton = ({ label, selected, onPress }: RadioButtonProps) => (
-  <TouchableOpacity style={styles.radioItem} onPress={onPress}>
-    <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
-      {selected && <View style={styles.radioDot} />}
-    </View>
-    <Text style={styles.radioLabel}>{label}</Text>
-  </TouchableOpacity>
-);
+  Modal,
+  Alert,
+} from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { supabase } from "../../supabaseClient";
 
 const PaymentScreen = () => {
   const router = useRouter();
-  const [selectedOption, setSelectedOption] = useState('cash');
+  const params = useLocalSearchParams<{
+    user_id?: string | string[];
+    product_name?: string | string[];
+    quantity?: string | string[];
+    total_price?: string | string[];
+    delivery_address?: string | string[];
+  }>();
+
+  // Normalize params
+  const getOne = (v?: string | string[]) => (Array.isArray(v) ? v[0] : v);
+
+  const param_user_id = getOne(params.user_id);
+  const product_name = getOne(params.product_name) ?? "";
+  const quantity = Number(getOne(params.quantity) ?? 1);
+  const total_price = Number(getOne(params.total_price) ?? 0);
+  const delivery_address = getOne(params.delivery_address) ?? "";
+
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const handleContinue = async () => {
+    if (!selectedMethod) {
+      Alert.alert("Select Payment", "Please select a payment method first.");
+      return;
+    }
+
+    try {
+      // Ensure user_id
+      let user_id = param_user_id ?? null;
+      if (!user_id) {
+        const { data: authData, error: authErr } = await supabase.auth.getUser();
+        if (authErr) throw authErr;
+        user_id = authData.user?.id ?? null;
+      }
+      if (!user_id) {
+        Alert.alert("Error", "No user is signed in.");
+        return;
+      }
+
+      // Insert order
+      const orderData = {
+        user_id,
+        product_name,
+        quantity,
+        total_price,
+        delivery_address,
+      };
+
+      const { error } = await supabase.from("order_history").insert([orderData]);
+      if (error) {
+        console.error("Error saving order:", error.message);
+        Alert.alert("Error", "Could not save order.");
+        return;
+      }
+
+      // Show thank-you modal
+      setShowModal(true);
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert("Error", err.message ?? "Something went wrong.");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
+      <Text style={styles.header}>Choose Payment Method</Text>
+
+      {/* COD */}
       <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => router.push('/user/ShoppingCart')}
+        style={[styles.optionBox, selectedMethod === "cod" && styles.selectedBox]}
+        onPress={() => setSelectedMethod("cod")}
       >
-        <Entypo name="arrow-long-left" size={36} color="#333" />
+        <Image source={require("../../assets/cod.png")} style={styles.icon} />
+        <Text style={styles.optionText}>Cash on Delivery</Text>
       </TouchableOpacity>
 
-      <Image source={require('./../solane.png')} style={styles.logo} />
+      {/* GCash */}
+      <TouchableOpacity
+        style={[styles.optionBox, selectedMethod === "gcash" && styles.selectedBox]}
+        onPress={() => setSelectedMethod("gcash")}
+      >
+        <Image source={require("../../assets/gcash.png")} style={styles.icon} />
+        <Text style={styles.optionText}>GCash</Text>
+      </TouchableOpacity>
 
-      <View style={styles.card}>
-        <Text style={styles.title}>Payment Option</Text>
-        <Text style={styles.subtitle}>Choose your preferred method:</Text>
+      {/* Continue */}
+      <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
+        <Text style={styles.continueText}>Continue</Text>
+      </TouchableOpacity>
 
-        <RadioButton
-          label="GCash"
-          selected={selectedOption === 'Gcash'}
-          onPress={() => setSelectedOption('Gcash')}
-        />
-        <RadioButton
-          label="Cash on Delivery"
-          selected={selectedOption === 'cash'}
-          onPress={() => setSelectedOption('cash')}
-        />
+      {/* Thank You Modal */}
+      <Modal visible={showModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Thank you for your order!</Text>
+            <Text style={styles.modalMessage}>
+              Your order has been placed successfully.
+            </Text>
 
-        <TouchableOpacity style={styles.proceedBtn}>
-          <Text style={styles.proceedText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={styles.okButton}
+              onPress={() => {
+                setShowModal(false);
+                // ✅ Directly go to Receipt inside /user folder
+                router.push({
+                  pathname: "/user/Receipt",
+                  params: {
+                    product_name,
+                    quantity: quantity.toString(),
+                    total_price: total_price.toString(),
+                    delivery_address,
+                  },
+                });
+              }}
+            >
+              <Text style={styles.okText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -68,82 +144,84 @@ export default PaymentScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f7',
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#fff",
+    padding: 20,
+    justifyContent: "center",
   },
-  backButton: {
-    position: 'absolute',
-    top: 48,
-    left: 24,
+  header: {
+    fontSize: 22,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 30,
   },
-  logo: {
-    width: 120,
-    height: 180,
-    resizeMode: 'contain',
-    marginBottom: 20,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#1c1c1e',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
-    marginBottom: 24,
-  },
-  radioItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  radioCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  optionBox: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: '#cbd5e1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    borderColor: "#ccc",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+    justifyContent: "center",
   },
-  radioCircleSelected: {
-    borderColor: '#007aff',
+  selectedBox: {
+    borderColor: "#007bff",
+    backgroundColor: "#f0f8ff",
   },
-  radioDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#007aff',
+  optionText: {
+    fontSize: 18,
+    fontWeight: "500",
+    marginLeft: 10,
   },
-  radioLabel: {
-    fontSize: 16,
-    color: '#1f2937',
+  icon: {
+    width: 40,
+    height: 40,
+    resizeMode: "contain",
   },
-  proceedBtn: {
-    marginTop: 32,
-    backgroundColor: '#007aff',
+  continueButton: {
+    backgroundColor: "#007bff",
     paddingVertical: 14,
     borderRadius: 10,
-    alignItems: 'center',
+    marginTop: 10,
   },
-  proceedText: {
-    color: '#fff',
+  continueText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalBox: {
+    backgroundColor: "white",
+    padding: 25,
+    borderRadius: 12,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalMessage: {
     fontSize: 16,
-    fontWeight: '600',
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  okButton: {
+    backgroundColor: "#007bff",
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+  },
+  okText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });

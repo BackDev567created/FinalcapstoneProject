@@ -127,7 +127,19 @@ const ShoppingCart = () => {
 
   const renderItem = ({ item }: any) => (
     <View style={styles.card}>
-      <Image source={{ uri: item.image }} style={styles.image} />
+      {/* ✅ Fix: show image_url from DB, fallback if missing */}
+      {item.image_url ? (
+        <Image source={{ uri: item.image_url }} style={styles.image} />
+      ) : (
+        <View
+          style={[
+            styles.image,
+            { justifyContent: 'center', alignItems: 'center', backgroundColor: '#444' },
+          ]}
+        >
+          <Text style={{ color: '#ccc' }}>No Image</Text>
+        </View>
+      )}
 
       <View style={styles.details}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>

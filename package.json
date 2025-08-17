@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -56,7 +56,8 @@
     "react-navigation-stack": "^2.10.4",
     "undefined": "@expo-google-fonts/[Poppins]",
     "yup": "^1.6.1",
-    "expo-file-system": "~18.1.11"
+    "expo-file-system": "~18.1.11",
+    "expo-dev-client": "~5.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
