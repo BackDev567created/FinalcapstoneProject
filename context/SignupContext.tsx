@@ -9,6 +9,8 @@ type SignupData = {
   lastName: string;
   address: string;
   password: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type SignupContextType = {
@@ -27,6 +29,8 @@ export const SignupProvider = ({ children }: { children: ReactNode }) => {
     lastName: '',
     address: '',
     password: '',
+    latitude: null,
+    longitude: null,
   });
 
   const setSignupData = (data: Partial<SignupData>) => {
@@ -41,6 +45,8 @@ export const SignupProvider = ({ children }: { children: ReactNode }) => {
       lastName: '',
       address: '',
       password: '',
+      latitude: null,
+      longitude: null,
     });
   };
 

@@ -6,6 +6,7 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  ScrollView,
 } from 'react-native';
 import React, { useState } from 'react';
 import * as Yup from 'yup';
@@ -15,93 +16,73 @@ import { useSignup } from '../../context/SignupContext';
 import { supabase } from '../../supabaseClient';
 import { Ionicons } from '@expo/vector-icons';
 
-// Validation Schema
 const validationSchema = Yup.object().shape({
-  password: Yup.string()
-    .required('Please fill out the form')
-    .min(4, 'Password must be at least 4 characters'),
+  password: Yup.string().required('Password is required').min(6, 'At least 6 characters'),
   confirmPassword: Yup.string()
-    .required('Password must match')
-    .oneOf([Yup.ref('password')], 'Passwords must match'),
+    .oneOf([Yup.ref('password')], 'Passwords must match')
+    .required('Confirm your password'),
 });
 
 const SigninScreen2 = () => {
   const router = useRouter();
-  const { signupData, resetSignupData } = useSignup();
-
+  const { signupData } = useSignup();
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSignup = async (values: { password: string; confirmPassword: string }) => {
-    const { email, phoneNumber, firstName, lastName, address } = signupData;
-    const { password } = values;
+    try {
+      // 1. Sign up in Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: signupData.email,
+        password: values.password,
+      });
+      if (error) throw error;
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { phoneNumber, firstName, lastName, address },
-      },
-    });
+      const userId = data.user?.id;
+      if (!userId) throw new Error('User ID not found');
 
-    if (error) {
-      Alert.alert('Signup Error', error.message);
-      console.log('Signup failed:', error.message);
-      return;
-    }
-
-    const userId = data?.user?.id;
-    if (userId) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
+      // 2. Save all data in profiles table
+      const { error: profileError } = await supabase.from('profiles').insert([
+        {
           id: userId,
-          first_name: firstName,
-          last_name: lastName,
-          address: address,
-        });
+          email: signupData.email,
+          phone_number: signupData.phoneNumber,
+          first_name: signupData.firstName,
+          last_name: signupData.lastName,
+          address: signupData.address,
+          latitude: signupData.latitude,
+          longitude: signupData.longitude,
+        },
+      ]);
+      if (profileError) throw profileError;
 
-      if (profileError) {
-        console.error('❌ Failed to insert profile:', profileError.message);
-        Alert.alert('Profile Save Error', profileError.message);
-        return;
-      } else {
-        console.log('✅ Profile info saved!');
-      }
+      Alert.alert('Success', 'Please check your email to confirm before login.');
+      router.replace('/screen/LoginScreen');
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
     }
-
-    Alert.alert('Signup Success', 'Please verify your email before logging in.');
-    resetSignupData();
-    router.push('/screen/LoginScreen');
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Image source={require('./../image 2.png')} style={styles.logo} />
-      <Image source={require('./../image3.png')} style={styles.progress} />
+      <Image source={require('./../Bar3.png')} style={styles.progress} />
 
       <Formik
         initialValues={{ password: '', confirmPassword: '' }}
         onSubmit={handleSignup}
         validationSchema={validationSchema}
       >
-        {({
-          handleChange,
-          handleBlur,
-          handleSubmit,
-          values,
-          errors,
-          touched,
-        }) => (
+        {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
           <View style={styles.backgroundform}>
-            <Text style={styles.subtitle}>Password</Text>
+            <Text style={styles.subtitle}>Create Password</Text>
             <View style={styles.form}>
               {/* Password Field */}
               <Text style={styles.title}>Password</Text>
-              <View style={styles.inputContainer}>
+              <View style={styles.passwordWrapper}>
                 <TextInput
-                  style={styles.input}
-                  placeholder="Type Here"
+                  style={styles.passwordInput}
+                  placeholder="Password"
                   secureTextEntry={!showPassword}
                   onChangeText={handleChange('password')}
                   onBlur={handleBlur('password')}
@@ -113,7 +94,7 @@ const SigninScreen2 = () => {
                 >
                   <Ionicons
                     name={showPassword ? 'eye' : 'eye-off'}
-                    size={20}
+                    size={24}
                     color="gray"
                   />
                 </TouchableOpacity>
@@ -124,22 +105,22 @@ const SigninScreen2 = () => {
 
               {/* Confirm Password Field */}
               <Text style={styles.title}>Confirm Password</Text>
-              <View style={styles.inputContainer}>
+              <View style={styles.passwordWrapper}>
                 <TextInput
-                  style={styles.input}
-                  placeholder="Type Here"
-                  secureTextEntry={!showConfirmPassword}
+                  style={styles.passwordInput}
+                  placeholder="Confirm Password"
+                  secureTextEntry={!showConfirm}
                   onChangeText={handleChange('confirmPassword')}
                   onBlur={handleBlur('confirmPassword')}
                   value={values.confirmPassword}
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onPress={() => setShowConfirm(!showConfirm)}
                 >
                   <Ionicons
-                    name={showConfirmPassword ? 'eye' : 'eye-off'}
-                    size={20}
+                    name={showConfirm ? 'eye' : 'eye-off'}
+                    size={24}
                     color="gray"
                   />
                 </TouchableOpacity>
@@ -148,7 +129,6 @@ const SigninScreen2 = () => {
                 <Text style={styles.errorText}>{errors.confirmPassword}</Text>
               )}
 
-              {/* Submit Button */}
               <TouchableOpacity style={styles.buttonBase} onPress={() => handleSubmit()}>
                 <View style={styles.loginButton}>
                   <Text style={styles.buttonText}>Sign Up</Text>
@@ -158,74 +138,102 @@ const SigninScreen2 = () => {
           </View>
         )}
       </Formik>
-    </View>
+    </ScrollView>
   );
 };
 
 export default SigninScreen2;
 
-// Styles
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    paddingTop: 120,
+  container: { 
+    flexGrow: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: '#fff', 
+    paddingTop: 120 
   },
-  logo: { width: 64, height: 100, marginBottom: 550, position: 'absolute' },
-  progress: { width: 230, height: 80, alignSelf: 'center', bottom: 55 },
-  backgroundform: {
-    width: 320.48,
-    height: '50%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    borderColor: 'gray',
-    borderWidth: 0.3,
-    bottom: 20,
+  logo: { 
+    width: 64, 
+    height: 100, 
+    marginBottom: 550, 
+    position: 'absolute' 
   },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    paddingBottom: 12,
-    position: 'absolute',
-    top: 20,
-    left: 20,
+  progress: { 
+    width: 230, 
+    height: 80, 
+    alignSelf: 'center', 
+    bottom: 55 
   },
-  form: { width: '90%', bottom: 8, paddingTop: 10, marginTop: 10 },
-  title: { fontSize: 15, fontWeight: 'bold', marginBottom: 2, left: 20 },
-  inputContainer: {
-    width: '90%',
+  backgroundform: { 
+    width: 320.48, 
+    height: '50%', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: 'white', 
+    borderRadius: 20, 
+    borderColor: 'gray', 
+    borderWidth: 0.3, 
+    bottom: 20 
+  },
+  subtitle: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    right: 45, 
+    bottom: 54 
+  },
+  form: { 
+    width: '90%', 
+    bottom: 8 
+  },
+  title: { 
+    fontSize: 15, 
+    fontWeight: 'bold', 
+    marginBottom: 2, 
+    left: 2, 
+    paddingHorizontal: 18 
+  },
+  passwordWrapper: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    width: '90%', 
     alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'black',
-    borderRadius: 8,
-    marginBottom: 15,
-    paddingHorizontal: 10,
+    borderColor: 'black', 
+    borderWidth: 1, 
+    borderRadius: 8, 
+    marginBottom: 10, 
+    paddingRight: 10 
   },
-  eyeIcon: { position: 'absolute', right: 10 },
-  input: { flex: 1, height: 40, paddingHorizontal: 10 },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginTop: -10,
-    marginBottom: 1,
-    marginLeft: 22,
-    fontWeight: '500',
-  },
-  loginButton: {
+  passwordInput: {
+    flex: 1,
     height: 50,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    bottom: 30,
+    paddingHorizontal: 16,
   },
-  buttonBase: { alignSelf: 'center', width: '90%', position: 'absolute', top: 220 },
-  buttonText: { color: '#eee6da', fontSize: 18, fontWeight: 'bold', shadowColor: 'black' },
+  eyeIcon: { 
+    paddingHorizontal: 8 
+  },
+  errorText: { 
+    color: 'red', 
+    fontSize: 12, 
+    marginTop: -10, 
+    marginBottom: 1, 
+    marginLeft: 22, 
+    fontWeight: '500' 
+  },
+  buttonBase: { 
+    alignSelf: 'center', 
+    width: '90%' 
+  },
+  loginButton: { 
+    height: 50, 
+    backgroundColor: '#007AFF', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    borderRadius: 8, 
+    top: 40 
+  },
+  buttonText: { 
+    color: '#eee6da', 
+    fontSize: 18, 
+    fontWeight: 'bold' 
+  },
 });
