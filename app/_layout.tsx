@@ -20,6 +20,9 @@ export default function RootLayout() {
             <Stack.Screen name="user/ShoppingCart" options={{ headerShown: false }} />
             <Stack.Screen name="user/PaymentScreen" options={{ headerShown: false }} />
             <Stack.Screen name="user/Receipt" options={{ headerShown: false }} />
+                    <Stack.Screen name="tabs/ChatsList" options={{ headerTitle: "", headerShown: true }} />
+            <Stack.Screen name="tabs/ChatWithCustomer" options={{ headerTitle: "",  headerShown: true }} />
+    
 
           </Stack>
         </SafeAreaProvider>

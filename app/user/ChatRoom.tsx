@@ -62,14 +62,19 @@ const ChatRoom = () => {
     getUser();
     fetchMessages();
 
+    // Real-time subscription for new messages
     const subscription = supabase
       .channel('messages-channel')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
+          // Add the new message to the state immediately
           setMessages(prev => [...prev, payload.new as Message]);
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+          // Scroll to the bottom after a short delay
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
         }
       )
       .subscribe();
@@ -205,24 +210,28 @@ const ChatRoom = () => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.user_id === userId;
+    const isAdminMessage = item.message.startsWith('[ADMIN]:');
     const senderName = item.profiles 
       ? `${item.profiles.first_name || ''} ${item.profiles.last_name || ''}`.trim() 
       : 'Unknown User';
     const editing = editingMessages[item.id] !== undefined;
 
+    // For admin messages, always show on left side
+    const displayOnLeft = isAdminMessage || !isCurrentUser;
+
     return (
       <Pressable
         onLongPress={(e) => showMenu(e, item)}
-        style={[styles.messageContainer, isCurrentUser ? styles.myMessage : styles.otherMessage]}
+        style={[styles.messageContainer, displayOnLeft ? styles.otherMessage : styles.myMessage]}
       >
-        {!isCurrentUser && <Text style={styles.senderName}>{senderName}</Text>}
-        <View style={[styles.messageBubble, isCurrentUser ? styles.myBubble : styles.otherBubble]}>
+        {displayOnLeft && <Text style={styles.senderName}>{isAdminMessage ? 'ADMIN' : senderName}</Text>}
+        <View style={[styles.messageBubble, displayOnLeft ? styles.otherBubble : styles.myBubble]}>
           {editing ? (
             <>
               <TextInput
                 value={editingMessages[item.id]}
                 onChangeText={text => setEditingMessages(prev => ({ ...prev, [item.id]: text }))}
-                style={[styles.editInput, { color: isCurrentUser ? '#FFF' : '#111827' }]}
+                style={[styles.editInput, { color: displayOnLeft ? '#111827' : '#FFF' }]}
                 autoFocus
                 multiline
                 onSubmitEditing={() => saveEdit(item.id)}
@@ -247,8 +256,8 @@ const ChatRoom = () => {
               </View>
             </>
           ) : (
-            <Text style={isCurrentUser ? styles.myMessageText : styles.otherMessageText}>
-              {item.message}
+            <Text style={displayOnLeft ? styles.otherMessageText : styles.myMessageText}>
+              {isAdminMessage ? item.message.replace('[ADMIN]:', '').trim() : item.message}
             </Text>
           )}
         </View>
@@ -330,24 +339,24 @@ const ChatRoom = () => {
       >
         <TouchableWithoutFeedback onPress={() => setMenuVisible(false)}>
           <View style={styles.menuOverlay}>
-            <Animated.View 
-              style={[
-                styles.menu, 
-                { 
-                  top: menuPosition.y - 100, 
-                  left: menuPosition.x - 120,
-                  opacity: fadeAnim,
-                  transform: [
-                    {
-                      scale: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.8, 1],
-                      })
-                    }
-                  ]
-                }
-              ]}
-            >
+<Animated.View 
+  style={[
+    styles.menu, 
+    { 
+      top: menuPosition.y,
+      left: menuPosition.x,
+      opacity: fadeAnim,
+      transform: [
+        {
+          scale: fadeAnim.interpolate({ 
+            inputRange: [0, 1],
+            outputRange: [0.8, 1],
+          })
+        }
+      ]
+    }
+  ]}
+>
               <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
                 <Icon name="edit" size={18} color="#3B82F6" style={styles.menuIcon} />
                 <Text style={styles.menuText}>Edit</Text>
@@ -402,11 +411,11 @@ const styles = StyleSheet.create({
   headerRight: { width: 24 },
   messagesList: { padding: 16 },
   messageContainer: { marginBottom: 16, maxWidth: '80%' },
-  myMessage: { alignSelf: 'flex-end', alignItems: 'flex-end' },
+  myMessage: { alignSelf: 'flex-end', alignItems: 'flex-end',},
   otherMessage: { alignSelf: 'flex-start', alignItems: 'flex-start' },
-  senderName: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
+  senderName: { fontSize: 12, color: '#6B7280', marginBottom: 4, fontWeight: '500' },
   messageBubble: { borderRadius: 18, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 4 },
-  myBubble: { backgroundColor: '#3B82F6', borderTopRightRadius: 4 },
+  myBubble: { backgroundColor: '#3B82F6', borderTopRightRadius: 4,},
   otherBubble: { backgroundColor: '#FFF', borderTopLeftRadius: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   myMessageText: { color: '#FFF', fontSize: 16 },
   otherMessageText: { color: '#111827', fontSize: 16 },
@@ -436,4 +445,4 @@ const styles = StyleSheet.create({
   deleteButtonText: { color: 'white', fontWeight: '600' },
 });
 
-export default ChatRoom;
+export default ChatRoom; 

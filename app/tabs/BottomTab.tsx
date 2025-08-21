@@ -25,6 +25,7 @@ const BottomTab = () => {
         <Tab.Screen name='Orders' component={Orders} options={{ tabBarIcon:({color})=> <Entypo name="shopping-cart" size={24} color={color} />}}/>
         <Tab.Screen name='Products' component={Products} options={{ tabBarIcon:({color})=> <MaterialCommunityIcons name="account-multiple-check" size={24} color={color}/>}}/>
         <Tab.Screen name='Profile' component={Profile} options={{ tabBarIcon:({color})=> <FontAwesome name="user" size={24} color={color}/>}}/>
+        
     </Tab.Navigator>
   )
 }
