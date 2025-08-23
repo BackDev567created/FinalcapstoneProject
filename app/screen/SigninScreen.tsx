@@ -1,20 +1,20 @@
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
-  TextInput,
   View,
   Image,
   TouchableOpacity,
   Alert,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
-import React, { useState } from 'react';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
 import { useRouter } from 'expo-router';
 import { useSignup } from '../../context/SignupContext';
 import { supabase } from '../../supabaseClient';
+import { TextInput as PaperInput } from 'react-native-paper';
 
 const validationSchema = Yup.object().shape({
   phoneNumber: Yup.string()
@@ -33,7 +33,6 @@ const SigninScreen = () => {
 
   const checkEmailExists = async (email: string): Promise<boolean> => {
     try {
-      // Check in profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('email')
@@ -45,25 +44,23 @@ const SigninScreen = () => {
         throw profileError;
       }
 
-      // If email exists in profiles, return true
       if (profileData) {
         return true;
       }
 
-      // Check if email exists using RPC function (client-side approach)
-      const { data: authData, error: authError } = await supabase
-        .rpc('check_user_exists', { user_email: email.toLowerCase() });
+      const { data: authData, error: authError } = await supabase.rpc(
+        'check_user_exists',
+        { user_email: email.toLowerCase() }
+      );
 
       if (authError) {
         console.error('Error checking auth users:', authError.message);
-        // If RPC fails, we'll assume the email doesn't exist to not block registration
         return false;
       }
 
       return authData || false;
     } catch (error) {
       console.error('Error checking email existence:', error);
-      // If there's an error, we'll assume the email doesn't exist to not block registration
       return false;
     }
   };
@@ -71,20 +68,24 @@ const SigninScreen = () => {
   const handleNext = async (values: { phoneNumber: string; email: string }) => {
     setIsCheckingEmail(true);
     setEmailError('');
-    
+
     try {
       const emailExists = await checkEmailExists(values.email);
-      
+
       if (emailExists) {
-        setEmailError('This email is already registered. Please use a different email or login.');
+        setEmailError(
+          'This email is already registered. Please use a different email or login.'
+        );
         return;
       }
-      
-      // If email doesn't exist, proceed
+
       setSignupData(values);
       router.push('./SigninScreen1');
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to check email availability. Please try again.');
+      Alert.alert(
+        'Error',
+        'Failed to check email availability. Please try again.'
+      );
       console.error('Error checking email:', error);
     } finally {
       setIsCheckingEmail(false);
@@ -103,51 +104,78 @@ const SigninScreen = () => {
         validateOnChange={false}
         validateOnBlur={false}
       >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldTouched }) => (
+        {({
+          handleChange,
+          handleBlur,
+          handleSubmit,
+          values,
+          errors,
+          touched,
+          setFieldTouched,
+        }) => (
           <View style={styles.backgroundform}>
             <Text style={styles.subtitle}>Personal Information</Text>
             <View style={styles.form}>
-              <Text style={styles.title}>Mobile Number</Text>
-              <TextInput
-                style={[styles.input, isCheckingEmail && styles.inputDisabled]}
+              {/* Phone Number */}
+              <PaperInput
+                label="Mobile Number"
+                mode="outlined"
                 placeholder="+63 Mobile Number"
+                value={values.phoneNumber}
                 onChangeText={handleChange('phoneNumber')}
                 onBlur={() => {
                   handleBlur('phoneNumber');
                   setFieldTouched('phoneNumber', true);
                 }}
-                value={values.phoneNumber}
                 keyboardType="phone-pad"
+                style={styles.input}
                 editable={!isCheckingEmail}
+                theme={{
+                  colors: {
+                    primary: '#007AFF',
+                    outline: '#007AFF',
+                  },
+                }}
               />
               {touched.phoneNumber && errors.phoneNumber && (
                 <Text style={styles.errorText}>{errors.phoneNumber}</Text>
               )}
 
-              <Text style={styles.title}>Email</Text>
-              <TextInput
-                style={[styles.input, isCheckingEmail && styles.inputDisabled]}
+              {/* Email */}
+              <PaperInput
+                label="Email"
+                mode="outlined"
                 placeholder="Email"
+                value={values.email}
                 onChangeText={handleChange('email')}
                 onBlur={() => {
                   handleBlur('email');
                   setFieldTouched('email', true);
                 }}
-                value={values.email}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                style={styles.input}
                 editable={!isCheckingEmail}
+                theme={{
+                  colors: {
+                    primary: '#007AFF',
+                    outline: '#007AFF',
+                  },
+                }}
               />
               {(touched.email && errors.email) && (
                 <Text style={styles.errorText}>{errors.email}</Text>
               )}
-              
               {emailError ? (
                 <Text style={styles.errorText}>{emailError}</Text>
               ) : null}
 
-              <TouchableOpacity 
-                style={[styles.buttonBase, isCheckingEmail && styles.buttonDisabled]} 
+              {/* Next Button */}
+              <TouchableOpacity
+                style={[
+                  styles.buttonBase,
+                  isCheckingEmail && styles.buttonDisabled,
+                ]}
                 onPress={() => handleSubmit()}
                 disabled={isCheckingEmail}
               >
@@ -170,96 +198,79 @@ const SigninScreen = () => {
 export default SigninScreen;
 
 const styles = StyleSheet.create({
-  container: { 
-    flexGrow: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: '#fff', 
-    paddingTop: 120 
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingTop: 120,
   },
-  logo: { 
-    width: 64, 
-    height: 100, 
-    marginBottom: 550, 
-    position: 'absolute' 
+  logo: {
+    width: 64,
+    height: 100,
+    marginBottom: 550,
+    position: 'absolute',
   },
-  title: { 
-    fontSize: 15, 
-    fontWeight: 'bold', 
-    marginBottom: 2, 
-    left: 2, 
-    paddingHorizontal: 18 
+  form: {
+    width: '90%',
+    bottom: 8,
   },
-  form: { 
-    width: '90%', 
-    bottom: 8 
+  input: {
+    marginBottom: 10,
+    backgroundColor: '#fff',
   },
-  input: { 
-    height: 50, 
-    width: '90%', 
-    borderColor: 'black', 
-    borderWidth: 1, 
-    borderRadius: 8, 
-    paddingHorizontal: 16, 
-    marginBottom: 10, 
-    alignSelf: 'center' 
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: -5,
+    marginBottom: 10,
+    marginLeft: 10,
+    fontWeight: '500',
   },
-  inputDisabled: {
-    backgroundColor: '#f0f0f0',
+  loginButton: {
+    height: 50,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginTop: 40,
+  },
+  buttonText: {
+    color: '#eee6da',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  buttonBase: {
+    alignSelf: 'center',
+    width: '90%',
+  },
+  buttonDisabled: {
     opacity: 0.7,
   },
-  errorText: { 
-    color: 'red', 
-    fontSize: 12, 
-    marginTop: -8, 
-    marginBottom: 10, 
-    marginLeft: 22, 
-    fontWeight: '500' 
-  },
-  loginButton: { 
-    height: 50, 
-    backgroundColor: '#007AFF', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    borderRadius: 8, 
-    top: 40 
-  },
-  buttonText: { 
-    color: '#eee6da', 
-    fontSize: 18, 
-    fontWeight: 'bold' 
-  },
-  buttonBase: { 
-    alignSelf: 'center', 
-    width: '90%' 
-  },
-  buttonDisabled: { 
-    opacity: 0.7 
-  },
-  backgroundform: { 
-    width: 320, 
-    height: '50%', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: 'white', 
-    borderRadius: 20, 
-    borderColor: 'gray', 
-    borderWidth: 0.3, 
+  backgroundform: {
+    width: 320,
+    height: '50%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    borderColor: 'gray',
+    borderWidth: 0.3,
     bottom: 20,
-    paddingVertical: 20
+    paddingVertical: 20,
   },
-  subtitle: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
+  subtitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     alignSelf: 'flex-start',
     marginLeft: 20,
-    marginBottom: 10
+    marginBottom: 10,
   },
-  progress: { 
-    width: 230, 
-    height: 80, 
-    alignSelf: 'center', 
+  progress: {
+    width: 230,
+    height: 80,
+    alignSelf: 'center',
     bottom: 55,
-    marginBottom: 20
+    marginBottom: 20,
   },
 });

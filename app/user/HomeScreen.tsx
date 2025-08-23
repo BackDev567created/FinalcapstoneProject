@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,10 @@ import {
   Alert,
   Image,
   ScrollView,
+  RefreshControl,
+  Animated,
+  Easing,
+   Dimensions
 } from 'react-native';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { Appbar, Button, Card } from 'react-native-paper';
@@ -25,6 +29,35 @@ const HomeScreen = () => {
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [animatingItems, setAnimatingItems] = useState<number[]>([]);
+  const animatedValues = useRef(new Map()).current;
+ const animateAddToCart = (itemId: number, item: any) => {
+  // Create animated value if it doesn't exist
+  if (!animatedValues.has(itemId)) {
+    animatedValues.set(itemId, new Animated.Value(0));
+  }
+
+  const animValue = animatedValues.get(itemId);
+  
+  // Add to animating items
+  setAnimatingItems(prev => [...prev, itemId]);
+
+  // Start animation
+  Animated.timing(animValue, {
+    toValue: 1,
+    duration: 800,
+    easing: Easing.out(Easing.exp),
+    useNativeDriver: true,
+  }).start(() => {
+    // Animation complete - remove from animating items and add to actual cart
+    setAnimatingItems(prev => prev.filter(id => id !== itemId));
+    handleAddToCart(item);
+  });
+};
+
+
+  
 
   useEffect(() => {
     const backAction = () => {
@@ -53,7 +86,13 @@ const HomeScreen = () => {
     };
   }, []);
 
-const fetchProducts = async () => {
+const fetchProducts = async (isRefreshing = false) => {
+  if (isRefreshing) {
+    setRefreshing(true);
+  } else {
+    setLoading(true);
+  }
+
   try {
     const { data, error } = await supabase
       .from('products')
@@ -66,17 +105,21 @@ const fetchProducts = async () => {
       ...item,
       qty: 0,
       opt: 'swap' as 'swap' | 'new',
-      // ✅ keep only Supabase image_url
       image_url: item.image_url || null,
     }));
 
     setProducts(productsWithState);
-    setLoading(false);
   } catch (err: any) {
     console.error('Failed to fetch products:', err.message);
     Alert.alert('Error', 'Failed to fetch products');
+  } finally {
     setLoading(false);
+    setRefreshing(false);
   }
+};
+
+const onRefresh = () => {
+  fetchProducts(true); // Pass true to indicate it's a refresh
 };
 
 const handleAddToCart = async (item: any) => {
@@ -91,8 +134,17 @@ const handleAddToCart = async (item: any) => {
     return;
   }
 
-  const adjustedPrice = item.opt === 'swap' ? 100 : item.price;
-  const totalPrice = adjustedPrice * item.qty;
+  // ✅ TAMANG COMPUTATION: ₱900 PER ITEM FOR SWAP
+  let totalPrice = 0;
+  
+  if (item.opt === 'swap') {
+    // For swap: ₱900 PER ITEM
+    totalPrice = 900 * item.qty;
+  } else {
+    // For new: regular price
+    totalPrice = item.price * item.qty;
+  }
+
   const weightValue = parseFloat(item.kilograms?.toString() || '0');
 
   const payload = {
@@ -102,7 +154,6 @@ const handleAddToCart = async (item: any) => {
     renewaltype: item.opt,
     kilograms: weightValue,
     productname: item.name,
-    // ✅ save image_url to addtocart table
     image_url: item.image_url || null,
   };
 
@@ -110,12 +161,11 @@ const handleAddToCart = async (item: any) => {
     const { error } = await supabase.from('addtocart').insert([payload]);
     if (error) throw error;
 
-    // ✅ pass image_url when storing in local cart
     addToCart({
       ...item,
       quantity: item.qty,
       option: item.opt,
-      price: adjustedPrice,
+      price: totalPrice,
       image_url: item.image_url || null,
     });
 
@@ -126,7 +176,6 @@ const handleAddToCart = async (item: any) => {
   }
 };
 
-
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -134,6 +183,67 @@ const handleAddToCart = async (item: any) => {
       </View>
     );
   }
+
+
+  // Add this component inside your HomeScreen component, before the return statement
+const FlyingItem = ({ itemId, product }: { itemId: number, product: any }) => {
+  const animValue = animatedValues.get(itemId);
+  
+  if (!animValue) return null;
+
+  const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
+  
+  const startX = screenWidth / 2 - 100; // Approximate center of product card
+  const startY = screenHeight / 2;
+  const endX = screenWidth - 40; // Cart icon position (right side)
+  const endY = 60; // Cart icon position (top)
+
+  const translateX = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, endX - startX]
+  });
+
+  const translateY = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, endY - startY]
+  });
+
+  const scale = animValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 1.2, 0.5]
+  });
+
+  const opacity = animValue.interpolate({
+    inputRange: [0, 0.8, 1],
+    outputRange: [1, 1, 0]
+  });
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: startX,
+        top: startY,
+        transform: [{ translateX }, { translateY }, { scale }],
+        opacity,
+        zIndex: 1000,
+      }}
+    >
+      <View style={styles.flyingItem}>
+        {product.image_url ? (
+          <Image
+            source={{ uri: product.image_url }}
+            style={styles.flyingImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text style={styles.flyingText}>+1</Text>
+        )}
+      </View>
+    </Animated.View>
+  );
+};
 
   return (
     <View style={styles.container}>
@@ -148,37 +258,54 @@ const handleAddToCart = async (item: any) => {
           />
         </Appbar.Header>
 
+           {animatingItems.map(itemId => {
+        const product = products.find(p => p.id === itemId);
+        return product ? (
+          <FlyingItem key={itemId} itemId={itemId} product={product} />
+        ) : null;
+      })}
+
         <ScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 1 }}
           showsVerticalScrollIndicator={false}
           style={{ flex: 1 }}
-        >
+           refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      colors={['#007aff']} // iOS
+      tintColor="#007aff" // iOS
+      progressBackgroundColor="#ffffff"
+    />
+  }>
+
+            
           {products.map((item, index) => (
             <Card key={index} style={styles.card}>
               <Card.Content style={styles.content}>
-    {item.image_url ? (
-  <Image
-    source={{ uri: item.image_url }}
-    style={styles.image}
-    resizeMode="contain"
-  />
-) : (
-  <View
-    style={[
-      styles.image,
-      { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }
-    ]}
-  >
-    <Text>No Image</Text>
-  </View>
-)}
+           {item.image_url ? (
+          <Image
+            source={{ uri: item.image_url }}
+            style={styles.image}
+            resizeMode="contain"/>
+                ) : (
+                  <View
+                    style={[
+                      styles.image,
+                      { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }
+                    ]}
+                  >
+                    <Text>No Image</Text>
+                  </View>
+                )}
 
 
-                <View style={styles.infoContainer}>
-                  <View style={styles.textSection}>
-                    <Text style={styles.title}>{item.name}</Text>
-                    <Text style={styles.subTitle}>{item.kilograms} kgs</Text>
-                    <Text style={styles.price}>₱ {item.opt === 'swap' ? 100 : item.price}</Text>
+                  <View style={styles.infoContainer}>
+                    <View style={styles.textSection}>
+                      <Text style={styles.title}>{item.name}</Text>
+                      <Text style={styles.subTitle}>{item.kilograms} kgs</Text>
+                      <Text style={styles.price}>
+                      ₱ {item.opt === 'swap' ? 900 : item.price} {item.opt === 'swap' && 'per item (swap)'}</Text>
                   </View>
 
                   <View style={styles.controlsSection}>
@@ -240,7 +367,7 @@ const handleAddToCart = async (item: any) => {
                       <Button
                         mode="contained"
                         style={styles.addToCartBtn}
-                        onPress={() => handleAddToCart(item)}
+                        onPress={() => animateAddToCart(item.id, item)} 
                       >
                         Add to cart
                       </Button>
@@ -253,6 +380,8 @@ const handleAddToCart = async (item: any) => {
         </ScrollView>
       </SafeAreaView>
     </View>
+
+    
   );
 };
 
@@ -342,5 +471,28 @@ const styles = StyleSheet.create({
     height: 40,
     bottom: 7,
     right: 11,
+  },
+   flyingItem: {
+    backgroundColor: '#007aff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  flyingImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  flyingText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

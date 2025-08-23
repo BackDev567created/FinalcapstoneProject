@@ -1,10 +1,15 @@
-import { StyleSheet, Text, TextInput, View, Image, TouchableOpacity, Alert } from 'react-native';
 import React, { useState } from 'react';
+import { StyleSheet, View, Image, Alert } from 'react-native';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../supabaseClient';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  TextInput,
+  Button,
+  HelperText,
+  Card,
+} from 'react-native-paper';
 
 const validationSchema = Yup.object().shape({
   email: Yup.string()
@@ -15,8 +20,8 @@ const validationSchema = Yup.object().shape({
       function (value) {
         if (!value) return false;
         const looksLikeEmail = value.includes('@');
-        if (!looksLikeEmail) return true; // Treat as username
-        return Yup.string().email().isValidSync(value); // Validate email format
+        if (!looksLikeEmail) return true; // treat as username
+        return Yup.string().email().isValidSync(value); // validate email
       }
     ),
   password: Yup.string().required('Password is required').min(4),
@@ -36,7 +41,8 @@ const LoginScreen: React.FC = () => {
         console.error('Error fetching admins:', adminError.message);
       } else if (admins && admins.length > 0) {
         const matchedAdmin = admins.find(
-          (admin: any) => admin.username === email && admin.password === password
+          (admin: any) =>
+            admin.username === email && admin.password === password
         );
 
         if (matchedAdmin) {
@@ -46,10 +52,11 @@ const LoginScreen: React.FC = () => {
         }
       }
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (authError || !authData.user) {
         Alert.alert('Login failed', 'Invalid email or password');
@@ -66,74 +73,106 @@ const LoginScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <Image source={require('./../image 2.png')} style={styles.logo} />
-      <Formik
-        initialValues={{ email: '', password: '' }}
-        onSubmit={async (values) => handleLogin(values.email, values.password)}
-        validationSchema={validationSchema}
-      >
-        {({
-          handleChange,
-          handleBlur,
-          handleSubmit,
-          values,
-          errors,
-          touched,
-        }) => (
-          <View style={styles.form}>
-            <Text style={styles.title}>Email or Username</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter email"
-              onChangeText={handleChange('email')}
-              onBlur={handleBlur('email')}
-              value={values.email}
-              autoCapitalize="none"
-            />
-            {errors.email && touched.email && <Text style={styles.errorText}>{errors.email}</Text>}
-
-            <Text style={styles.title}>Password</Text>
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Password"
-                onChangeText={handleChange('password')}
-                onBlur={handleBlur('password')}
-                value={values.password}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye' : 'eye-off'}
-                  size={24}
-                  color="gray"
+      <Card style={styles.card} mode="elevated">
+        <Card.Content>
+          <Formik
+            initialValues={{ email: '', password: '' }}
+            onSubmit={async (values) =>
+              handleLogin(values.email, values.password)
+            }
+            validationSchema={validationSchema}
+          >
+            {({
+              handleChange,
+              handleBlur,
+              handleSubmit,
+              values,
+              errors,
+              touched,
+            }) => (
+              <View>
+                {/* Email / Username */}
+                <TextInput
+                  label="Email or Username"
+                  mode="outlined"
+                  value={values.email}
+                  onChangeText={handleChange('email')}
+                  onBlur={handleBlur('email')}
+                  autoCapitalize="none"
+                  style={styles.input}
+                  theme={{
+    colors: {
+      primary: '#007AFF', // active border
+      outline: '#007AFF', // default border
+    },
+  }}
                 />
-              </TouchableOpacity>
-            </View>
-            {errors.password && touched.password && (
-              <Text style={styles.errorText}>{errors.password}</Text>
+                {errors.email && touched.email && (
+                  <HelperText type="error" visible={true}>
+                    {errors.email}
+                  </HelperText>
+                )}
+
+                {/* Password */}
+                <TextInput
+                  label="Password"
+                  mode="outlined"
+                  value={values.password}
+                  onChangeText={handleChange('password')}
+                  onBlur={handleBlur('password')}
+                  secureTextEntry={!showPassword}
+                  right={
+                    <TextInput.Icon
+                      icon={showPassword ? 'eye' : 'eye-off'}
+                      onPress={() => setShowPassword(!showPassword)}
+                    />
+                  }
+                  style={styles.input}
+                  theme={{
+    colors: {
+      primary: '#007AFF', // active border
+      outline: '#007AFF', // default border
+    },
+  }}
+                />
+                {errors.password && touched.password && (
+                  <HelperText type="error" visible={true}>
+                    {errors.password}
+                  </HelperText>
+                )}
+
+                {/* Login Button */}
+                <Button
+                  mode="contained"
+                  style={styles.loginButton}
+                  onPress={() => handleSubmit()}
+                >
+                  Signin
+                </Button>
+
+                {/* Signup Button */}
+                <Button
+                  mode="outlined"
+                  style={styles.signButton}
+                  onPress={() => router.push('./SigninScreen')}
+                >
+                  Signup
+                </Button>
+
+                {/* Forgot Password */}
+                <Button
+                  mode="text"
+                  onPress={() =>
+                    Alert.alert('Forgot Password', 'Feature coming soon.')
+                  }
+                >
+                  Forgot Password?
+                </Button>
+              </View>
             )}
-
-            <TouchableOpacity style={styles.buttonBase} onPress={() => handleSubmit()}>
-              <View style={styles.loginButton}>
-                <Text style={styles.buttonText}>Login</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.buttonBase} onPress={() => router.push('./SigninScreen')}>
-              <View style={styles.signButton}>
-                <Text style={styles.signupText}>Signup</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => Alert.alert('Forgot Password', 'Feature coming soon.')}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </Formik>
+          </Formik>
+        </Card.Content>
+      </Card>
     </View>
   );
 };
@@ -143,97 +182,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#ffffffff',
     padding: 16,
-    backgroundColor: '#fff',
-    paddingTop: 120,
   },
   logo: {
     width: 84,
     height: 132,
-    marginBottom: 480,
-    position: 'absolute',
+    marginBottom: 30,
   },
-  form: {
+  card: {
     width: '100%',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'left',
-    paddingHorizontal: 20,
+    borderRadius: 12,
+    paddingVertical: 20,
+    backgroundColor: '#fff',
+
   },
   input: {
-    height: 50,
-    width: '90%',
-    borderColor: 'black',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    alignSelf: 'center',
-  },
-  passwordWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '90%',
-    alignSelf: 'center',
-    borderColor: 'black',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 16,
-    paddingRight: 12,
-  },
-  passwordInput: {
-    flex: 1,
-    height: 50,
-    paddingHorizontal: 16,
-  },
-  eyeIcon: {
-    paddingHorizontal: 4,
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginTop: -10,
-    marginBottom: 10,
-    marginLeft: 22,
-    fontWeight: '500',
-  },
-  buttonBase: {
-    alignSelf: 'center',
-    width: '90%',
+    marginBottom: 8,
+    backgroundColor: '#fff',
   },
   loginButton: {
-    height: 50,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
     marginTop: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#007AFF', // restored color
   },
   signButton: {
-    height: 50,
-    backgroundColor: '#e9e9e9',
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginTop: 16,
-  },
-  buttonText: {
-    color: '#eee6da',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  signupText: {
-    color: 'gray',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  forgotPasswordText: {
-    color: '#007AFF',
-    textAlign: 'center',
-    marginTop: 8,
   },
 });
 

@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
-  Text,
   View,
-  TextInput,
-  TouchableOpacity,
   Image,
   Alert,
-  ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../../supabaseClient';
+import { MaterialIcons } from '@expo/vector-icons';
+import {
+  TextInput,
+  Button,
+  Text,
+  Card,
+  ActivityIndicator,
+} from 'react-native-paper';
 
 const Product = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -77,12 +81,10 @@ const Product = () => {
 
     setLoading(true);
     try {
-      // Only upload image for new product
       let image_url: string | null = null;
       if (!editingId && image) image_url = await uploadImage(image);
 
       if (editingId) {
-        // Edit mode: don't update image
         const { error } = await supabase
           .from('products')
           .update({
@@ -127,7 +129,6 @@ const Product = () => {
     setKilograms(product.kilograms.toString());
     setStock(product.stock.toString());
     setCategory(product.category || '');
-    // Disable image change during edit
     setImage(null);
     setEditingId(product.id);
   };
@@ -162,33 +163,103 @@ const Product = () => {
             {product.category && <Text>Category: {product.category}</Text>}
           </View>
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.editBtn} onPress={() => handleEdit(product)}>
-              <Text>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(product.id)}>
-              <Text>Delete</Text>
-            </TouchableOpacity>
+            <Button 
+              mode="contained" 
+              style={[styles.iconBtn, styles.editBtn]} 
+              onPress={() => handleEdit(product)}
+              compact
+            >
+              <MaterialIcons name="edit" size={20} color="#fff" />
+            </Button>
+            <Button 
+              mode="contained" 
+              style={[styles.iconBtn, styles.deleteBtn]} 
+              onPress={() => handleDelete(product.id)}
+              compact
+            >
+              <MaterialIcons name="delete" size={20} color="#fff" />
+            </Button>
           </View>
         </View>
       ))}
 
-      {/* Form */}
-      <TextInput style={styles.input} placeholder="Product Name" value={name} onChangeText={setName} />
-      <TextInput style={styles.input} placeholder="Price" keyboardType="numeric" value={price} onChangeText={setPrice} />
-      <TextInput style={styles.input} placeholder="Kilograms" keyboardType="numeric" value={kilograms} onChangeText={setKilograms} />
-      <TextInput style={styles.input} placeholder="Stock" keyboardType="numeric" value={stock} onChangeText={setStock} />
-      <TextInput style={styles.input} placeholder="Category (optional)" value={category} onChangeText={setCategory} />
+      {/* Form with React Native Paper TextInput */}
+      <Card style={styles.formCard}>
+        <Card.Content>
+          <TextInput
+            label="Product Name *"
+            mode="outlined"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+            theme={{ colors: { primary: '#007AFF', outline: '#007AFF' } }}
+          />
+          
+          <TextInput
+            label="Price *"
+            mode="outlined"
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="numeric"
+            style={styles.input}
+            theme={{ colors: { primary: '#007AFF', outline: '#007AFF' } }}
+          />
+          
+          <TextInput
+            label="Kilograms *"
+            mode="outlined"
+            value={kilograms}
+            onChangeText={setKilograms}
+            keyboardType="numeric"
+            style={styles.input}
+            theme={{ colors: { primary: '#007AFF', outline: '#007AFF' } }}
+          />
+          
+          <TextInput
+            label="Stock *"
+            mode="outlined"
+            value={stock}
+            onChangeText={setStock}
+            keyboardType="numeric"
+            style={styles.input}
+            theme={{ colors: { primary: '#007AFF', outline: '#007AFF' } }}
+          />
+          
+          <TextInput
+            label="Category (optional)"
+            mode="outlined"
+            value={category}
+            onChangeText={setCategory}
+            style={styles.input}
+            theme={{ colors: { primary: '#007AFF', outline: '#007AFF' } }}
+          />
 
-      {/* Image picker only for new product */}
-      {!editingId && (
-        <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-          {image ? <Image source={{ uri: image }} style={styles.imagePreview} /> : <Text style={{ color: '#555' }}>Pick an image</Text>}
-        </TouchableOpacity>
-      )}
+          {!editingId && (
+            <Button 
+              mode="outlined" 
+              onPress={pickImage} 
+              style={styles.imagePicker}
+              icon={image ? "image" : "image-plus"}
+            >
+              {image ? 'Change Image' : 'Pick an Image'}
+            </Button>
+          )}
 
-      <TouchableOpacity style={styles.submitBtn} onPress={handleAddOrUpdateProduct} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{editingId ? 'Update Product' : 'Add Product'}</Text>}
-      </TouchableOpacity>
+          {image && (
+            <Image source={{ uri: image }} style={styles.imagePreview} />
+          )}
+
+          <Button
+            mode="contained"
+            onPress={handleAddOrUpdateProduct}
+            disabled={loading}
+            style={styles.submitBtn}
+            loading={loading}
+          >
+            {editingId ? 'Update Product' : 'Add Product'}
+          </Button>
+        </Card.Content>
+      </Card>
     </ScrollView>
   );
 };
@@ -196,17 +267,54 @@ const Product = () => {
 export default Product;
 
 const styles = StyleSheet.create({
-  container: { padding: 20, paddingBottom: 40, backgroundColor: '#fff' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 12 },
-  imagePicker: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 20, alignItems: 'center', marginBottom: 12 },
-  imagePreview: { width: 100, height: 100, borderRadius: 8 },
-  submitBtn: { backgroundColor: '#3498db', padding: 15, borderRadius: 8, alignItems: 'center' },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  productCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ccc', borderRadius: 10, padding: 10, marginBottom: 12 },
+  container: { padding: 16, paddingBottom: 40, backgroundColor: '#fff' },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  formCard: {
+    marginBottom: 20,
+    borderRadius: 12,
+  },
+  input: {
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  imagePicker: {
+    marginBottom: 12,
+    borderColor: '#007AFF',
+  },
+  imagePreview: { 
+    width: 100, 
+    height: 100, 
+    borderRadius: 8, 
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  submitBtn: {
+    marginTop: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+  },
+  productCard: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: '#ccc', 
+    borderRadius: 10, 
+    padding: 10, 
+    marginBottom: 12 
+  },
   productImage: { width: 60, height: 60, borderRadius: 8 },
   productName: { fontWeight: 'bold', fontSize: 16 },
-  buttonContainer: { flexDirection: 'row', gap: 8 },
-  editBtn: { backgroundColor: '#f1c40f', padding: 5, borderRadius: 5 },
-  deleteBtn: { backgroundColor: '#e74c3c', padding: 5, borderRadius: 5 },
+  buttonContainer: { justifyContent: 'space-between', alignItems: 'center' },
+  iconBtn: { 
+    width: 45, 
+    height: 45, 
+    borderRadius: 8, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginVertical: 4,
+    marginHorizontal: 4,
+  },
+  editBtn: { backgroundColor: '#f1c40f' },
+  deleteBtn: { backgroundColor: '#e74c3c' },
 });

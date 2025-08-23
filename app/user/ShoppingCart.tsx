@@ -42,7 +42,8 @@ const ShoppingCart = () => {
     const { data, error } = await supabase
       .from('addtocart')
       .select('*')
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }); // ✅ ADD THIS LINE
 
     if (error) {
       console.error('Error fetching cart:', error.message);
@@ -52,11 +53,14 @@ const ShoppingCart = () => {
     setLoading(false);
   };
 
-  const getTotal = () => {
-    return cartItems
-      .filter(item => selectedIds.includes(item.id))
-      .reduce((total, item) => total + Number(item.totalprice || 0), 0);
-  };
+const getTotal = () => {
+  return cartItems
+    .filter(item => selectedIds.includes(item.id))
+    .reduce((total, item) => {
+      const unitPrice = item.totalprice / item.quantity;
+      return total + (unitPrice * item.quantity);
+    }, 0);
+};
 
   const removeItem = async (id: number) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -93,9 +97,8 @@ const ShoppingCart = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const updatedTotalPrice =
-      (selectedItem.totalprice / selectedItem.quantity) * newQty;
-
+const unitPrice = selectedItem.totalprice / selectedItem.quantity;
+const updatedTotalPrice = unitPrice * newQty;
     const { error } = await supabase
       .from('addtocart')
       .update({
@@ -126,7 +129,14 @@ const ShoppingCart = () => {
   }, []);
 
   const renderItem = ({ item }: any) => (
-    <View style={styles.card}>
+    <TouchableOpacity 
+      style={[
+        styles.card,
+        selectedIds.includes(item.id) && styles.selectedCard
+      ]} 
+      onPress={() => toggleSelect(item.id)}
+      activeOpacity={0.7}
+    >
       {/* ✅ Fix: show image_url from DB, fallback if missing */}
       {item.image_url ? (
         <Image source={{ uri: item.image_url }} style={styles.image} />
@@ -134,10 +144,10 @@ const ShoppingCart = () => {
         <View
           style={[
             styles.image,
-            { justifyContent: 'center', alignItems: 'center', backgroundColor: '#444' },
+            { justifyContent: 'center', alignItems: 'center', backgroundColor: '#e0e0e0' },
           ]}
         >
-          <Text style={{ color: '#ccc' }}>No Image</Text>
+          <Text style={{ color: '#666' }}>No Image</Text>
         </View>
       )}
 
@@ -146,7 +156,7 @@ const ShoppingCart = () => {
           <Checkbox
             value={selectedIds.includes(item.id)}
             onValueChange={() => toggleSelect(item.id)}
-            color={selectedIds.includes(item.id) ? '#007aff' : undefined}
+            color={selectedIds.includes(item.id) ? '#007AFF' : undefined}
           />
           <Text style={[styles.name, { marginLeft: 8 }]}>{item.productname}</Text>
         </View>
@@ -163,7 +173,7 @@ const ShoppingCart = () => {
           <MaterialIcons name="delete" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -173,11 +183,11 @@ const ShoppingCart = () => {
           style={{ alignItems: 'baseline', margin: 16, top: 5, right: 10 }}
           onPress={() => router.push('/Components/MainDrawer')}
         >
-          <Entypo name="arrow-long-left" size={40} color="#fff" />
+          <Entypo name="arrow-long-left" size={40} color="#007AFF" />
         </TouchableOpacity>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#fff" style={{ marginTop: 50 }} />
+          <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
         ) : (
           <FlatList
             data={cartItems}
@@ -188,11 +198,11 @@ const ShoppingCart = () => {
         )}
 
         <View style={styles.bottomBar}>
-          <Text style={styles.totalText}>Total: ₱{getTotal()}</Text>
+         <Text style={styles.totalText}>Total: ₱{getTotal().toFixed(2)}</Text>
           <TouchableOpacity
             style={[
               styles.checkoutBtn,
-              selectedIds.length === 0 && { backgroundColor: '#999' },
+              selectedIds.length === 0 && styles.checkoutBtnDisabled,
             ]}
             onPress={() => {
               if (selectedIds.length === 0) return;
@@ -230,7 +240,7 @@ const ShoppingCart = () => {
                   <Text style={styles.saveText}>Save</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: '#999' }]}
+                  style={[styles.saveBtn, styles.cancelBtn]}
                   onPress={() => setEditModalVisible(false)}
                 >
                   <Text style={styles.saveText}>Cancel</Text>
@@ -247,29 +257,36 @@ const ShoppingCart = () => {
 export default ShoppingCart;
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#2b2b2b', flex: 1, paddingHorizontal: 12 },
+  container: { backgroundColor: '#ffffff', flex: 1, paddingHorizontal: 12 },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 10,
     marginVertical: 8,
     alignItems: 'center',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  selectedCard: {
+    backgroundColor: '#e6f2ff',
+    borderColor: '#007AFF',
+    borderWidth: 2,
   },
   image: {
     width: 100,
     height: 100,
     borderRadius: 12,
-    backgroundColor: '#555',
+    backgroundColor: '#e0e0e0',
     marginRight: 12,
     resizeMode: 'contain',
   },
   details: { flex: 1 },
-  name: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
-  price: { fontSize: 16, color: '#fff', marginVertical: 2 },
-  qty: { fontSize: 16, color: '#fff' },
-  renewal: { fontSize: 14, color: '#ccc' },
+  name: { fontSize: 18, fontWeight: 'bold', color: '#2c3e50' },
+  price: { fontSize: 16, color: '#2c3e50', marginVertical: 2, fontWeight: '600' },
+  qty: { fontSize: 16, color: '#6c757d' },
+  renewal: { fontSize: 14, color: '#6c757d' },
   actions: {
     position: 'absolute',
     right: 10,
@@ -278,30 +295,109 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 10,
   },
-  editBtn: { backgroundColor: '#007aff', padding: 8, borderRadius: 8 },
-  deleteBtn: { backgroundColor: '#d9534f', padding: 8, borderRadius: 8 },
-  emptyText: { color: '#aaa', textAlign: 'center', marginTop: 30, fontSize: 16, fontStyle: 'italic' },
+  editBtn: { 
+    backgroundColor: '#007AFF', 
+    padding: 8, 
+    borderRadius: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteBtn: { 
+    backgroundColor: '#dc3545', 
+    padding: 8, 
+    borderRadius: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: { 
+    color: '#6c757d', 
+    textAlign: 'center', 
+    marginTop: 30, 
+    fontSize: 16, 
+    fontStyle: 'italic' 
+  },
   bottomBar: {
     position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    backgroundColor: '#f5f5f5',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#ffffff',
     padding: 16,
-    borderRadius: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#ccc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  totalText: { fontSize: 18, fontWeight: 'bold' },
-  checkoutBtn: { backgroundColor: '#007aff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  checkoutText: { color: '#fff', fontWeight: 'bold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', padding: 24, borderRadius: 12, width: '85%' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
-  input: { borderColor: '#aaa', borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 10 },
-  saveBtn: { backgroundColor: '#007aff', padding: 10, borderRadius: 8, flex: 1, marginHorizontal: 4, alignItems: 'center' },
-  saveText: { color: '#fff', fontWeight: 'bold' },
+  totalText: { fontSize: 18, fontWeight: 'bold', color: '#2c3e50' },
+  checkoutBtn: { 
+    backgroundColor: '#007AFF', 
+    paddingHorizontal: 20, 
+    paddingVertical: 12, 
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  checkoutBtnDisabled: {
+    backgroundColor: '#adb5bd',
+  },
+  checkoutText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  modalContent: { 
+    backgroundColor: '#fff', 
+    padding: 24, 
+    borderRadius: 12, 
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    marginBottom: 16,
+    color: '#2c3e50',
+    textAlign: 'center',
+  },
+  input: { 
+    borderColor: '#ced4da', 
+    borderWidth: 1, 
+    borderRadius: 8, 
+    padding: 12, 
+    marginTop: 10,
+    fontSize: 16,
+  },
+  saveBtn: { 
+    backgroundColor: '#007AFF', 
+    padding: 12, 
+    borderRadius: 8, 
+    flex: 1, 
+    marginHorizontal: 4, 
+    alignItems: 'center' 
+  },
+  cancelBtn: {
+    backgroundColor: '#6c757d',
+  },
+  saveText: { 
+    color: '#fff', 
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
