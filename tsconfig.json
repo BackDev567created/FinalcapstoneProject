@@ -14,7 +14,15 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "app/screen/LoginScreen.tsx" , "app/screen/SigninScreen.tsx", "app/index.tsx", "navigation.d.ts", "app/component/MainDrawer.tsx", "app/user/HomeScreen.js", "app/navigation/index.tsx", "app/tabs/Dashboard.tsx" ]
+    "expo-env.d.ts",
+    "app/screen/LoginScreen.tsx",
+    "app/screen/SigninScreen.tsx",
+    "app/index.tsx",
+    "navigation.d.ts",
+    "app/component/MainDrawer.tsx",
+    "app/user/HomeScreen.js",
+    "app/navigation/index.tsx",
+    "app/tabs/Dashboard.tsx"
+  ]
 }
 

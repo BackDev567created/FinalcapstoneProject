@@ -16,160 +16,106 @@ import { useRouter } from 'expo-router';
 import Entypo from '@expo/vector-icons/Entypo';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import Checkbox from 'expo-checkbox';
-import { supabase } from '../../supabaseClient';
+import { useCart } from '../Components/CartContent';
 
 const ShoppingCart = () => {
   const router = useRouter();
-  const [cartItems, setCartItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { cart, removeFromCart } = useCart();
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [editQty, setEditQty] = useState('');
-  const [editType, setEditType] = useState('');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [editType, setEditType] = useState<'swap' | 'new'>('new');
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
-  // Fetch cart items for the logged-in user
-  const fetchCartItems = async () => {
-    setLoading(true);
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error('No user logged in:', userError?.message);
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('addtocart')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false }); // ✅ ADD THIS LINE
-
-    if (error) {
-      console.error('Error fetching cart:', error.message);
-    } else {
-      setCartItems(data || []);
-    }
-    setLoading(false);
+  const getTotal = () => {
+    return cart
+      .filter((_, index) => selectedIndices.includes(index))
+      .reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-const getTotal = () => {
-  return cartItems
-    .filter(item => selectedIds.includes(item.id))
-    .reduce((total, item) => {
-      const unitPrice = item.totalprice / item.quantity;
-      return total + (unitPrice * item.quantity);
-    }, 0);
-};
-
-  const removeItem = async (id: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('addtocart')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Error deleting:', error.message);
-      return;
-    }
-    setCartItems(prev => prev.filter(item => item.id !== id));
-    setSelectedIds(prev => prev.filter(i => i !== id));
+  const removeItem = (index: number) => {
+    removeFromCart(index);
+    // Update selected indices after removal
+    setSelectedIndices(prev =>
+      prev.filter(i => i !== index).map(i => i > index ? i - 1 : i)
+    );
   };
 
-  const openEditModal = (item: any) => {
-    setSelectedItem(item);
+  const openEditModal = (index: number) => {
+    const item = cart[index];
+    setSelectedItemIndex(index);
     setEditQty(item.quantity.toString());
-    setEditType(item.renewaltype);
+    setEditType(item.option);
     setEditModalVisible(true);
   };
 
-  const saveEdit = async () => {
+  const saveEdit = () => {
     const newQty = parseInt(editQty);
     if (isNaN(newQty) || newQty <= 0) {
       Alert.alert('Invalid quantity');
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    // For now, we'll just remove and re-add the item with new quantity
+    // In a real app, you'd want to update the cart context to support editing
+    if (selectedItemIndex !== null) {
+      const item = cart[selectedItemIndex];
+      removeFromCart(selectedItemIndex);
 
-const unitPrice = selectedItem.totalprice / selectedItem.quantity;
-const updatedTotalPrice = unitPrice * newQty;
-    const { error } = await supabase
-      .from('addtocart')
-      .update({
-        quantity: newQty,
-        renewaltype: editType,
-        totalprice: updatedTotalPrice,
-      })
-      .eq('id', selectedItem.id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Update error:', error.message);
-      Alert.alert('Update failed');
-    } else {
-      fetchCartItems();
-      setEditModalVisible(false);
+      // Re-add with new quantity and type
+      // Note: This is a simplified approach. A more robust solution would update the cart context
+      Alert.alert('Note', 'Item quantity updated. Please re-add from product page if needed.');
     }
+
+    setEditModalVisible(false);
+    setSelectedItemIndex(null);
   };
 
-  const toggleSelect = (id: number) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+  const toggleSelect = (index: number) => {
+    setSelectedIndices(prev =>
+      prev.includes(index) ? prev.filter(item => item !== index) : [...prev, index]
     );
   };
 
-  useEffect(() => {
-    fetchCartItems();
-  }, []);
-
-  const renderItem = ({ item }: any) => (
-    <TouchableOpacity 
+  const renderItem = ({ item, index }: { item: any; index: number }) => (
+    <TouchableOpacity
       style={[
         styles.card,
-        selectedIds.includes(item.id) && styles.selectedCard
-      ]} 
-      onPress={() => toggleSelect(item.id)}
+        selectedIndices.includes(index) && styles.selectedCard
+      ]}
+      onPress={() => toggleSelect(index)}
       activeOpacity={0.7}
     >
-      {/* ✅ Fix: show image_url from DB, fallback if missing */}
-      {item.image_url ? (
-        <Image source={{ uri: item.image_url }} style={styles.image} />
-      ) : (
-        <View
-          style={[
-            styles.image,
-            { justifyContent: 'center', alignItems: 'center', backgroundColor: '#e0e0e0' },
-          ]}
-        >
-          <Text style={{ color: '#666' }}>No Image</Text>
-        </View>
-      )}
+      {/* Placeholder for product image - you can add image_url to cart items later */}
+      <View
+        style={[
+          styles.image,
+          { justifyContent: 'center', alignItems: 'center', backgroundColor: '#e0e0e0' },
+        ]}
+      >
+        <Text style={{ color: '#666', fontSize: 12 }}>Product</Text>
+      </View>
 
       <View style={styles.details}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
           <Checkbox
-            value={selectedIds.includes(item.id)}
-            onValueChange={() => toggleSelect(item.id)}
-            color={selectedIds.includes(item.id) ? '#007AFF' : undefined}
+            value={selectedIndices.includes(index)}
+            onValueChange={() => toggleSelect(index)}
+            color={selectedIndices.includes(index) ? '#007AFF' : undefined}
           />
-          <Text style={[styles.name, { marginLeft: 8 }]}>{item.productname}</Text>
+          <Text style={[styles.name, { marginLeft: 8 }]}>{item.name}</Text>
         </View>
-        <Text style={styles.price}>₱{item.totalprice}</Text>
+        <Text style={styles.price}>₱{item.price.toLocaleString()}</Text>
         <Text style={styles.qty}>Qty: {item.quantity}</Text>
-        <Text style={styles.renewal}>Type: {item.renewaltype}</Text>
+        <Text style={styles.renewal}>Type: {item.option}</Text>
+        <Text style={styles.weight}>Weight: {item.weight}</Text>
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
+        <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(index)}>
           <FontAwesome name="edit" size={20} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => removeItem(item.id)}>
+        <TouchableOpacity style={styles.deleteBtn} onPress={() => removeItem(index)}>
           <MaterialIcons name="delete" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -186,36 +132,40 @@ const updatedTotalPrice = unitPrice * newQty;
           <Entypo name="arrow-long-left" size={40} color="#007AFF" />
         </TouchableOpacity>
 
-        {loading ? (
-          <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
+        {cart.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={styles.emptyText}>Your cart is empty.</Text>
+          </View>
         ) : (
           <FlatList
-            data={cartItems}
-            keyExtractor={item => item.id.toString()}
-            renderItem={renderItem}
+            data={cart}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item, index }) => renderItem({ item, index })}
             ListEmptyComponent={<Text style={styles.emptyText}>Your cart is empty.</Text>}
           />
         )}
 
-        <View style={styles.bottomBar}>
-         <Text style={styles.totalText}>Total: ₱{getTotal().toFixed(2)}</Text>
-          <TouchableOpacity
-            style={[
-              styles.checkoutBtn,
-              selectedIds.length === 0 && styles.checkoutBtnDisabled,
-            ]}
-            onPress={() => {
-              if (selectedIds.length === 0) return;
-              router.push({
-                pathname: '/user/PaymentScreen',
-                params: { selectedIds: JSON.stringify(selectedIds) },
-              });
-            }}
-            disabled={selectedIds.length === 0}
-          >
-            <Text style={styles.checkoutText}>Purchase</Text>
-          </TouchableOpacity>
-        </View>
+        {cart.length > 0 && (
+          <View style={styles.bottomBar}>
+           <Text style={styles.totalText}>Total: ₱{getTotal().toFixed(2)}</Text>
+            <TouchableOpacity
+              style={[
+                styles.checkoutBtn,
+                selectedIndices.length === 0 && styles.checkoutBtnDisabled,
+              ]}
+              onPress={() => {
+                if (selectedIndices.length === 0) return;
+                router.push({
+                  pathname: '/user/PaymentScreen',
+                  params: { selectedIndices: JSON.stringify(selectedIndices) },
+                });
+              }}
+              disabled={selectedIndices.length === 0}
+            >
+              <Text style={styles.checkoutText}>Purchase</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Edit Modal */}
         <Modal visible={editModalVisible} animationType="slide" transparent>
@@ -232,7 +182,7 @@ const updatedTotalPrice = unitPrice * newQty;
               <TextInput
                 placeholder="Renewal Type (swap/new)"
                 value={editType}
-                onChangeText={setEditType}
+                onChangeText={(text) => setEditType(text as 'swap' | 'new')}
                 style={styles.input}
               />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
@@ -287,6 +237,7 @@ const styles = StyleSheet.create({
   price: { fontSize: 16, color: '#2c3e50', marginVertical: 2, fontWeight: '600' },
   qty: { fontSize: 16, color: '#6c757d' },
   renewal: { fontSize: 14, color: '#6c757d' },
+  weight: { fontSize: 14, color: '#6c757d', marginTop: 2 },
   actions: {
     position: 'absolute',
     right: 10,

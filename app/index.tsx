@@ -1,23 +1,45 @@
-import { StyleSheet, Text, View, ImageBackground, Image, TouchableOpacity } from 'react-native';
-import React from 'react';  
+import { StyleSheet, Text, View, ImageBackground, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React from 'react';
 import { useFonts } from "expo-font";
 import AppLoading from 'expo-app-loading';
 import { useRouter } from 'expo-router';
-
+import { useAuth } from './contexts/AuthContext';
 
 function Index(){
-  let [fontsLoaded] = useFonts({
+  const [fontsLoaded] = useFonts({
     'Poppins-Bold': require('./../assets/fonts/Poppins-Bold.ttf')
   });
 
+  const { isAuthenticated, user, isLoading } = useAuth();
+  const router = useRouter();
 
   // Early return if fonts are not loaded
   if (!fontsLoaded) {
     return <AppLoading />;
   }
 
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#4189C8" />
+      </View>
+    );
+  }
 
-  const router = useRouter()
+  const handleContinue = () => {
+    if (isAuthenticated && user) {
+      // Redirect based on user role
+      if (user.role === 'admin') {
+        router.push('./tabs/BottomTab');
+      } else {
+        router.push('./Components/MainDrawer');
+      }
+    } else {
+      // Not authenticated, go to login
+      router.push('./screen/LoginScreen');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -26,11 +48,13 @@ function Index(){
       <Image source={require("./image 2.png")} style={styles.logo} />
       <Text style={styles.mainText}>Culing's LPG Outlet</Text>
       <View>
-      <TouchableOpacity style={styles.touchableArea} onPress={() => router.push("./screen/LoginScreen")}>
-        <Text style={styles.touchableText}>Click To Continue</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.touchableArea} onPress={handleContinue}>
+          <Text style={styles.touchableText}>
+            {isAuthenticated ? 'Continue to App' : 'Click To Continue'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
-  </View>
   );
 }
 

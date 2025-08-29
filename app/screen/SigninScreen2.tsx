@@ -46,25 +46,28 @@ const SigninScreen2 = () => {
       const userId = data.user?.id;
       if (!userId) throw new Error('User ID not found');
 
-      // 2. Save user profile
-      const { error: profileError } = await supabase.from('profiles').insert([
+      // 2. Save user profile in users table (matching our schema)
+      const fullName = `${signupData.firstName} ${signupData.lastName}`.trim();
+      const { error: profileError } = await supabase.from('users').insert([
         {
           id: userId,
           email: signupData.email,
-          phone_number: signupData.phoneNumber,
-          first_name: signupData.firstName,
-          last_name: signupData.lastName,
+          full_name: fullName,
+          phone: signupData.phoneNumber,
           address: signupData.address,
-          latitude: signupData.latitude,
-          longitude: signupData.longitude,
+          role: 'customer', // Default role for new signups
         },
       ]);
       if (profileError) throw profileError;
 
-      Alert.alert('Success', 'Please check your email to confirm before login.');
-      router.replace('/screen/LoginScreen');
+      Alert.alert(
+        'Success',
+        'Account created successfully! You can now login with your credentials.',
+        [{ text: 'OK', onPress: () => router.replace('/screen/LoginScreen') }]
+      );
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      console.error('Signup error:', err);
+      Alert.alert('Error', err.message || 'Failed to create account. Please try again.');
     }
   };
 

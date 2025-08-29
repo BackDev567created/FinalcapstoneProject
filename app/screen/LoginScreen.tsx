@@ -3,7 +3,7 @@ import { StyleSheet, View, Image, Alert } from 'react-native';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
 import {
   TextInput,
   Button,
@@ -29,41 +29,25 @@ const validationSchema = Yup.object().shape({
 
 const LoginScreen: React.FC = () => {
   const router = useRouter();
+  const { login, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (email: string, password: string) => {
     try {
-      const { data: admins, error: adminError } = await supabase
-        .from('admins')
-        .select('*');
+      const result = await login(email, password);
 
-      if (adminError) {
-        console.error('Error fetching admins:', adminError.message);
-      } else if (admins && admins.length > 0) {
-        const matchedAdmin = admins.find(
-          (admin: any) =>
-            admin.username === email && admin.password === password
-        );
+      if (result.success) {
+        Alert.alert('Welcome!', 'Login successful!');
 
-        if (matchedAdmin) {
-          Alert.alert('Welcome Admin');
+        // For now, check if it's admin login by checking the email
+        if (email === 'admin') {
           router.push('/tabs/BottomTab');
-          return;
+        } else {
+          router.push('/Components/MainDrawer');
         }
+      } else {
+        Alert.alert('Login failed', result.message || 'Invalid email or password');
       }
-
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-      if (authError || !authData.user) {
-        Alert.alert('Login failed', 'Invalid email or password');
-        return;
-      }
-
-      router.push('/Components/MainDrawer');
     } catch (error) {
       console.error('Login error:', error);
       Alert.alert('Login error', 'Something went wrong during login.');

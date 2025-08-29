@@ -15,6 +15,9 @@
         "NSLocationWhenInUseUsageDescription": "This app uses your location to provide better service and accurate delivery.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to provide better service and accurate delivery.",
         "NSLocationAlwaysUsageDescription": "This app uses your location to provide better service and accurate delivery.",
+        "NSCameraUsageDescription": "This app uses the camera to take photos for product images.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select product images.",
+        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your photo library.",
         "UIBackgroundModes": [
           "location",
           "fetch"
@@ -36,9 +39,15 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_BACKGROUND_LOCATION"
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "config": {
         "googleMaps": {
@@ -63,6 +72,7 @@
         }
       ],
       "expo-font",
+      "expo-image-picker",
       "expo-build-properties",
       [
         "expo-location",
@@ -79,7 +89,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

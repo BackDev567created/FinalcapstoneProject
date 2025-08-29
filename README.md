@@ -1,50 +1,255 @@
-# Welcome to your Expo app 👋
+# LPG E-commerce App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A comprehensive mobile-first e-commerce application for LPG (Liquefied Petroleum Gas) products with separate admin and customer interfaces.
 
-## Get started
+## 🚀 Features
 
-1. Install dependencies
+### Admin Features
+- 📊 **Analytics Dashboard** - Real-time sales analytics with interactive charts
+- 📦 **Product Management** - Full CRUD operations with image upload
+- 💬 **Chat Management** - Real-time customer communication
+- 📋 **Order Management** - View and manage customer orders
+- 📈 **Stock Alerts** - Low inventory notifications
+- 👥 **Customer Insights** - User analytics and management
 
-   ```bash
-   npm install
-   ```
+### Customer Features
+- 🛒 **Product Catalog** - Browse LPG products with search and filters
+- 🛍️ **Shopping Cart** - Add/remove items with quantity controls
+- 💳 **Payment Options** - COD and GCash payment methods
+- 📍 **Delivery Tracking** - Real-time location updates
+- 💬 **Customer Support** - Direct chat with admin
+- 📱 **Mobile-First** - Optimized for mobile devices
 
-2. Start the app
+## 🛠️ Tech Stack
 
-   ```bash
-   npx expo start
-   ```
+### Frontend
+- **React Native 0.79.5** with **Expo SDK 53**
+- **NativeWind** (Tailwind CSS for React Native)
+- **Expo Router** for navigation
+- **Expo Secure Store** for secure token storage
+- **Expo Image Picker** for photo uploads
+- **React Native Chart Kit** for analytics
 
-In the output, you'll find options to open the app in a
+### Backend
+- **Express.js** with **TypeScript**
+- **Supabase** (PostgreSQL + Real-time + Storage)
+- **JWT Authentication**
+- **bcryptjs** for password hashing
+- **Rate Limiting** for security
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📋 Prerequisites
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- Node.js 18+ and npm
+- Expo CLI (`npm install -g @expo/cli`)
+- Supabase account (https://supabase.com)
 
-## Get a fresh project
+## 🚀 Quick Start
 
-When you're ready, run:
+### 1. Clone and Install Dependencies
 
 ```bash
-npm run reset-project
+# Install frontend dependencies
+npm install
+
+# Install backend dependencies
+cd backend
+npm install
+cd ..
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Supabase Setup
 
-## Learn more
+1. **Create Supabase Project**
+   - Go to https://supabase.com
+   - Create a new project
+   - Wait for setup to complete
 
-To learn more about developing your project with Expo, look at the following resources:
+2. **Run Database Migration**
+   - Open your Supabase project dashboard
+   - Go to **SQL Editor**
+   - Copy the contents of `supabase-migrations/001_initial_schema.sql`
+   - Click **Run** to execute the migration
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+3. **Get API Credentials**
+   - Go to **Settings → API**
+   - Copy your **Project URL** and **anon/public key**
 
-## Join the community
+### 3. Environment Configuration
 
-Join our community of developers creating universal apps.
+#### Frontend Environment (.env in CapstoneProject-main/)
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+EXPO_PUBLIC_API_URL=http://localhost:3000
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+#### Backend Environment (backend/.env)
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+JWT_SECRET=your-super-secret-jwt-key-here
+JWT_EXPIRES_IN=7d
+PORT=3000
+NODE_ENV=development
+```
+
+### 4. Start Development Servers
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+npm run dev
+```
+
+**Terminal 2 - Frontend:**
+```bash
+npm start
+```
+
+### 5. Test the App
+
+1. **Admin Login**: Use `admin` / `admin123`
+2. **Customer Registration**: Create a new customer account
+3. **Add Products**: Admin can add LPG products with images
+4. **Browse & Order**: Customers can browse and add to cart
+
+## 📱 App Structure
+
+```
+CapstoneProject-main/
+├── app/                    # React Native Frontend
+│   ├── contexts/          # React contexts (Auth, Cart)
+│   ├── components/        # Reusable components
+│   ├── services/          # API services
+│   ├── hooks/            # Custom hooks
+│   ├── types/            # Frontend-specific types
+│   ├── utils/            # Helper functions
+│   ├── screens/          # App screens
+│   └── tabs/             # Tab navigation screens
+├── backend/               # Express.js API Server
+│   ├── src/
+│   │   ├── config/       # Database & app config
+│   │   ├── controllers/  # Business logic
+│   │   ├── middleware/   # Auth, rate limiting
+│   │   ├── models/       # Database schemas
+│   │   ├── routes/       # API endpoints
+│   │   └── utils/        # Helper functions
+│   ├── package.json
+│   └── tsconfig.json
+├── shared/                # Shared types & constants
+│   ├── types/
+│   └── constants/
+└── supabase-migrations/   # Database migration files
+```
+
+## 🔧 API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/logout` - User logout
+
+### Products
+- `GET /api/products` - List products with filters
+- `GET /api/products/:id` - Get single product
+- `POST /api/products` - Create product (Admin)
+- `PUT /api/products/:id` - Update product (Admin)
+- `DELETE /api/products/:id` - Delete product (Admin)
+
+### Orders
+- `GET /api/orders` - List orders
+- `GET /api/orders/:id` - Get single order
+- `POST /api/orders` - Create order
+- `PUT /api/orders/:id` - Update order status
+
+### Chat
+- `GET /api/chat/messages` - Get chat messages
+- `POST /api/chat/messages` - Send message
+
+## 🔒 Security Features
+
+- **JWT Authentication** with secure token storage
+- **Row Level Security** (RLS) policies in Supabase
+- **Rate Limiting** to prevent brute force attacks
+- **Input Validation** and sanitization
+- **CORS Protection** and security headers
+- **Password Hashing** with bcryptjs
+
+## 📊 Database Schema
+
+### Core Tables
+- **users** - Customer and admin accounts
+- **admins** - Default admin login
+- **products** - LPG product catalog
+- **orders** - Customer orders
+- **order_items** - Order line items
+- **chat_messages** - Customer-admin communication
+- **receipts** - Order receipts
+- **locations** - Delivery tracking
+- **stock_alerts** - Inventory notifications
+
+## 🚀 Deployment
+
+### Backend (Railway/Render)
+```bash
+cd backend
+npm run build
+npm start
+```
+
+### Frontend (Expo)
+```bash
+# Build for production
+npx expo build:android
+npx expo build:ios
+
+# Or use Expo Go for development
+npm start
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Error**
+   - Check your Supabase credentials in `.env` files
+   - Ensure the migration was run successfully
+
+2. **Image Upload Issues**
+   - Verify camera and media library permissions
+   - Check Supabase storage bucket configuration
+
+3. **Authentication Problems**
+   - Clear Expo Secure Store: `npx expo install expo-secure-store`
+   - Check JWT secret configuration
+
+4. **Chart Display Issues**
+   - Ensure `react-native-svg` is properly installed
+   - Check chart data format
+
+### Development Tips
+
+- Use `npm run reset-project` to reset the project
+- Clear Metro cache: `npx expo start --clear`
+- Check logs: `npx expo start --logs`
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📞 Support
+
+For support, please contact the development team or create an issue in the repository.
+
+---
+
+**Happy coding! 🎉**

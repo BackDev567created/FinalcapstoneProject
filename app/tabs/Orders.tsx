@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,8 +6,10 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { LocationTracker } from '../Components/LocationTracker';
 
 // Sample data (added more to ensure scroll)
 const cardData = [
@@ -70,6 +72,19 @@ const cardData = [
 ];
 
 const Orders = () => {
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showLocationTracker, setShowLocationTracker] = useState(false);
+
+  const handleViewOrder = (order: any) => {
+    setSelectedOrder(order);
+    setShowLocationTracker(true);
+  };
+
+  const handleCloseLocationTracker = () => {
+    setShowLocationTracker(false);
+    setSelectedOrder(null);
+  };
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -86,13 +101,43 @@ const Orders = () => {
 
               <View style={styles.rightContainer}>
                 <Text style={styles.time}>{item.time}</Text>
-                <TouchableOpacity style={styles.button}>
-                  <Text style={styles.buttonText}>View</Text>
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => handleViewOrder(item)}
+                >
+                  <Text style={styles.buttonText}>Track</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ))}
         </ScrollView>
+
+        {/* Location Tracker Modal */}
+        <Modal
+          visible={showLocationTracker}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={handleCloseLocationTracker}
+        >
+          {selectedOrder && (
+            <LocationTracker
+              orderId={`order-${Date.now()}`} // Generate unique order ID
+              customerName={selectedOrder.name}
+              deliveryAddress={selectedOrder.location}
+              onLocationUpdate={(location) => {
+                console.log('Location updated:', location);
+              }}
+            />
+          )}
+
+          {/* Close Button */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleCloseLocationTracker}
+          >
+            <Text style={styles.closeButtonText}>Close Tracking</Text>
+          </TouchableOpacity>
+        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -163,5 +208,20 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: 'bold',
     fontSize: 12,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: '#dc3545',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    zIndex: 1000,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

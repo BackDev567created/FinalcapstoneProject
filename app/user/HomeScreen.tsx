@@ -1,498 +1,394 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  SafeAreaView,
   StyleSheet,
-  BackHandler,
-  Alert,
-  Image,
+  Text,
+  View,
   ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
   RefreshControl,
-  Animated,
-  Easing,
-   Dimensions
+  FlatList,
+  Alert
 } from 'react-native';
-import { useNavigation, DrawerActions } from '@react-navigation/native';
-import { Appbar, Button, Card } from 'react-native-paper';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useCart } from '../Components/CartContent';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../supabaseClient';
+import { useCart } from '../Components/CartContent';
+import { PRODUCT_OPTIONS } from '../../shared/constants';
+
+interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  weight: string;
+  price: number;
+  image_url?: string;
+  option: 'swap' | 'new';
+  stock_quantity: number;
+  is_active: boolean;
+}
 
 const HomeScreen = () => {
-  const navigation = useNavigation();
-  const router = useRouter();
-  const { addToCart } = useCart();
-  const insets = useSafeAreaInsets();
-
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [animatingItems, setAnimatingItems] = useState<number[]>([]);
-  const animatedValues = useRef(new Map()).current;
- const animateAddToCart = (itemId: number, item: any) => {
-  // Create animated value if it doesn't exist
-  if (!animatedValues.has(itemId)) {
-    animatedValues.set(itemId, new Animated.Value(0));
-  }
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedOption, setSelectedOption] = useState<'all' | 'swap' | 'new'>('all');
+  const [quantities, setQuantities] = useState<{ [key: string]: number }>({});
 
-  const animValue = animatedValues.get(itemId);
-  
-  // Add to animating items
-  setAnimatingItems(prev => [...prev, itemId]);
+  const router = useRouter();
+  const { addToCart } = useCart();
 
-  // Start animation
-  Animated.timing(animValue, {
-    toValue: 1,
-    duration: 800,
-    easing: Easing.out(Easing.exp),
-    useNativeDriver: true,
-  }).start(() => {
-    // Animation complete - remove from animating items and add to actual cart
-    setAnimatingItems(prev => prev.filter(id => id !== itemId));
-    handleAddToCart(item);
-  });
-};
+  const fetchProducts = async () => {
+    try {
+      let query = supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
+      if (selectedOption !== 'all') {
+        query = query.eq('option', selectedOption);
+      }
 
-  
+      if (searchQuery.trim()) {
+        query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+      }
 
-  useEffect(() => {
-    const backAction = () => {
-      Alert.alert('Hold on!', 'Are you sure you want to exit the app?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'YES', onPress: () => BackHandler.exitApp() },
-      ]);
-      return true;
-    };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+      const { data, error } = await query;
 
-    fetchProducts();
-
-    const subscription = supabase
-      .channel('public:products')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
-        () => fetchProducts()
-      )
-      .subscribe();
-
-    return () => {
-      backHandler.remove();
-      supabase.removeChannel(subscription);
-    };
-  }, []);
-
-const fetchProducts = async (isRefreshing = false) => {
-  if (isRefreshing) {
-    setRefreshing(true);
-  } else {
-    setLoading(true);
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('id', { ascending: false });
-
-    if (error) throw error;
-
-    const productsWithState = data.map(item => ({
-      ...item,
-      qty: 0,
-      opt: 'swap' as 'swap' | 'new',
-      image_url: item.image_url || null,
-    }));
-
-    setProducts(productsWithState);
-  } catch (err: any) {
-    console.error('Failed to fetch products:', err.message);
-    Alert.alert('Error', 'Failed to fetch products');
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
-  }
-};
-
-const onRefresh = () => {
-  fetchProducts(true); // Pass true to indicate it's a refresh
-};
-
-const handleAddToCart = async (item: any) => {
-  if (item.qty <= 0) {
-    Alert.alert('Quantity required', 'Please select at least 1 item.');
-    return;
-  }
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    Alert.alert('Error', 'You must be logged in to add items to the cart.');
-    return;
-  }
-
-  // ✅ TAMANG COMPUTATION: ₱900 PER ITEM FOR SWAP
-  let totalPrice = 0;
-  
-  if (item.opt === 'swap') {
-    // For swap: ₱900 PER ITEM
-    totalPrice = 900 * item.qty;
-  } else {
-    // For new: regular price
-    totalPrice = item.price * item.qty;
-  }
-
-  const weightValue = parseFloat(item.kilograms?.toString() || '0');
-
-  const payload = {
-    user_id: user.id,
-    quantity: item.qty,
-    totalprice: totalPrice,
-    renewaltype: item.opt,
-    kilograms: weightValue,
-    productname: item.name,
-    image_url: item.image_url || null,
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      Alert.alert('Error', 'Failed to load products');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  try {
-    const { error } = await supabase.from('addtocart').insert([payload]);
-    if (error) throw error;
+  useEffect(() => {
+    fetchProducts();
+  }, [searchQuery, selectedOption]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProducts();
+  };
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    setQuantities(prev => ({
+      ...prev,
+      [productId]: Math.max(0, quantity)
+    }));
+  };
+
+  const addToCartHandler = (product: Product) => {
+    const quantity = quantities[product.id] || 1;
+
+    if (quantity <= 0) {
+      Alert.alert('Error', 'Please select a quantity greater than 0');
+      return;
+    }
+
+    if (quantity > product.stock_quantity) {
+      Alert.alert('Error', 'Not enough stock available');
+      return;
+    }
 
     addToCart({
-      ...item,
-      quantity: item.qty,
-      option: item.opt,
-      price: totalPrice,
-      image_url: item.image_url || null,
+      name: product.name,
+      weight: product.weight,
+      price: product.price,
+      quantity,
+      option: product.option
     });
 
-    Alert.alert('✅ Success', `${item.qty}x ${item.name} (${item.opt}) added to cart`);
-  } catch (err: any) {
-    console.error('Add to cart error:', err.message);
-    Alert.alert('Error', 'Failed to add to cart');
-  }
-};
+    // Reset quantity
+    setQuantities(prev => ({
+      ...prev,
+      [product.id]: 0
+    }));
+
+    Alert.alert('Success', `${product.name} added to cart!`);
+  };
+
+  const renderProduct = ({ item }: { item: Product }) => {
+    const quantity = quantities[item.id] || 0;
+    const isOutOfStock = item.stock_quantity <= 0;
+
+    return (
+      <View style={styles.productCard}>
+        <View style={styles.productInfo}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <Text style={styles.productWeight}>{item.weight}</Text>
+          <Text style={styles.productDescription}>
+            {item.description || 'No description available'}
+          </Text>
+          <Text style={styles.productPrice}>₱{item.price.toLocaleString()}</Text>
+
+          <View style={styles.stockInfo}>
+            <Text style={[
+              styles.stockText,
+              isOutOfStock && styles.outOfStockText
+            ]}>
+              {isOutOfStock ? 'Out of Stock' : `Stock: ${item.stock_quantity}`}
+            </Text>
+            <View style={[
+              styles.optionBadge,
+              { backgroundColor: item.option === 'new' ? '#4CAF50' : '#FF9800' }
+            ]}>
+              <Text style={styles.optionText}>{item.option.toUpperCase()}</Text>
+            </View>
+          </View>
+        </View>
+
+        {!isOutOfStock && (
+          <View style={styles.cartControls}>
+            <View style={styles.quantityControls}>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => updateQuantity(item.id, quantity - 1)}
+              >
+                <Text style={styles.quantityButtonText}>-</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.quantityText}>{quantity}</Text>
+
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => updateQuantity(item.id, quantity + 1)}
+              >
+                <Text style={styles.quantityButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addToCartButton, quantity === 0 && styles.addToCartButtonDisabled]}
+              onPress={() => addToCartHandler(item)}
+              disabled={quantity === 0}
+            >
+              <Text style={[
+                styles.addToCartButtonText,
+                quantity === 0 && styles.addToCartButtonTextDisabled
+              ]}>
+                Add to Cart
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {isOutOfStock && (
+          <View style={styles.outOfStockContainer}>
+            <Text style={styles.outOfStockText}>Out of Stock</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text>Loading products...</Text>
-      </View>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4189C8" />
+            <Text style={styles.loadingText}>Loading products...</Text>
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 
-
-  // Add this component inside your HomeScreen component, before the return statement
-const FlyingItem = ({ itemId, product }: { itemId: number, product: any }) => {
-  const animValue = animatedValues.get(itemId);
-  
-  if (!animValue) return null;
-
-  const screenWidth = Dimensions.get('window').width;
-  const screenHeight = Dimensions.get('window').height;
-  
-  const startX = screenWidth / 2 - 100; // Approximate center of product card
-  const startY = screenHeight / 2;
-  const endX = screenWidth - 40; // Cart icon position (right side)
-  const endY = 60; // Cart icon position (top)
-
-  const translateX = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, endX - startX]
-  });
-
-  const translateY = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, endY - startY]
-  });
-
-  const scale = animValue.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 1.2, 0.5]
-  });
-
-  const opacity = animValue.interpolate({
-    inputRange: [0, 0.8, 1],
-    outputRange: [1, 1, 0]
-  });
-
   return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: startX,
-        top: startY,
-        transform: [{ translateX }, { translateY }, { scale }],
-        opacity,
-        zIndex: 1000,
-      }}
-    >
-      <View style={styles.flyingItem}>
-        {product.image_url ? (
-          <Image
-            source={{ uri: product.image_url }}
-            style={styles.flyingImage}
-            resizeMode="contain"
-          />
-        ) : (
-          <Text style={styles.flyingText}>+1</Text>
-        )}
-      </View>
-    </Animated.View>
-  );
-};
-
-  return (
-    <View style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <Appbar.Header style={{ backgroundColor: '#fff' }}>
-          <Appbar.Action icon="menu" onPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
-          <Appbar.Action
-            icon="cart"
-            size={30}
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Available Products</Text>
+          <TouchableOpacity
+            style={styles.cartButton}
             onPress={() => router.push('/user/ShoppingCart')}
-            style={{ marginLeft: 'auto' }}
+          >
+            <Text style={styles.cartButtonText}>🛒 Cart</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Search and Filters */}
+        <View style={styles.filtersContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-        </Appbar.Header>
 
-           {animatingItems.map(itemId => {
-        const product = products.find(p => p.id === itemId);
-        return product ? (
-          <FlyingItem key={itemId} itemId={itemId} product={product} />
-        ) : null;
-      })}
+          <View style={styles.filterButtons}>
+            {(['all', 'new', 'swap'] as const).map(option => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.filterButton,
+                  selectedOption === option && styles.filterButtonActive
+                ]}
+                onPress={() => setSelectedOption(option)}
+              >
+                <Text style={[
+                  styles.filterButtonText,
+                  selectedOption === option && styles.filterButtonTextActive
+                ]}>
+                  {option === 'all' ? 'All' : option.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: insets.bottom + 1 }}
-          showsVerticalScrollIndicator={false}
-          style={{ flex: 1 }}
-           refreshControl={
-    <RefreshControl
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      colors={['#007aff']} // iOS
-      tintColor="#007aff" // iOS
-      progressBackgroundColor="#ffffff"
-    />
-  }>
-
-            
-          {products.map((item, index) => (
-            <Card key={index} style={styles.card}>
-              <Card.Content style={styles.content}>
-           {item.image_url ? (
-          <Image
-            source={{ uri: item.image_url }}
-            style={styles.image}
-            resizeMode="contain"/>
-                ) : (
-                  <View
-                    style={[
-                      styles.image,
-                      { backgroundColor: '#ddd', justifyContent: 'center', alignItems: 'center' }
-                    ]}
-                  >
-                    <Text>No Image</Text>
-                  </View>
-                )}
-
-
-                  <View style={styles.infoContainer}>
-                    <View style={styles.textSection}>
-                      <Text style={styles.title}>{item.name}</Text>
-                      <Text style={styles.subTitle}>{item.kilograms} kgs</Text>
-                      <Text style={styles.price}>
-                      ₱ {item.opt === 'swap' ? 900 : item.price} {item.opt === 'swap' && 'per item (swap)'}</Text>
-                  </View>
-
-                  <View style={styles.controlsSection}>
-                    <View style={styles.optionRow}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          setProducts(prev => {
-                            const newProducts = [...prev];
-                            newProducts[index].qty = Math.max(0, newProducts[index].qty - 1);
-                            return newProducts;
-                          })
-                        }
-                        style={styles.qtyBtn}
-                      >
-                        <Text style={styles.qtyText}>-</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.qtyNumber}>{item.qty}</Text>
-                      <TouchableOpacity
-                        onPress={() =>
-                          setProducts(prev => {
-                            const newProducts = [...prev];
-                            newProducts[index].qty += 1;
-                            return newProducts;
-                          })
-                        }
-                        style={styles.qtyBtn}
-                      >
-                        <Text style={styles.qtyText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.cartRow}>
-                      <View style={styles.quantityControl}>
-                        <TouchableOpacity
-                          style={[styles.optionButton, item.opt === 'swap' && styles.optionButtonActive]}
-                          onPress={() =>
-                            setProducts(prev => {
-                              const newProducts = [...prev];
-                              newProducts[index].opt = 'swap';
-                              return newProducts;
-                            })
-                          }
-                        >
-                          <Text style={styles.optionText}>Swap</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.optionButton, item.opt === 'new' && styles.optionButtonActive]}
-                          onPress={() =>
-                            setProducts(prev => {
-                              const newProducts = [...prev];
-                              newProducts[index].opt = 'new';
-                              return newProducts;
-                            })
-                          }
-                        >
-                          <Text style={styles.optionText}>New</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <Button
-                        mode="contained"
-                        style={styles.addToCartBtn}
-                        onPress={() => animateAddToCart(item.id, item)} 
-                      >
-                        Add to cart
-                      </Button>
-                    </View>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
-          ))}
-        </ScrollView>
+        {/* Products List */}
+        <FlatList
+          data={products}
+          renderItem={renderProduct}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.productsList}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#4189C8']}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No products found</Text>
+            </View>
+          }
+        />
       </SafeAreaView>
-    </View>
-
-    
+    </SafeAreaProvider>
   );
 };
 
-export default HomeScreen;
-
-// Styles remain unchanged
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
-  content: { alignItems: 'center', justifyContent: 'center' },
-  card: {
-    margin: 10,
-    marginTop: 10,
-    borderRadius: 12,
-    borderColor: '#a2a3a4ff',
-    borderWidth: 0.2,
-    overflow: 'hidden',
-    backgroundColor: '#e1e6ecff',
-    width: '90%',
-    alignSelf: 'center',
-  },
-  image: { width: 200, height: 250, marginBottom: 10 },
-  infoContainer: {
+  safeArea: { flex: 1, backgroundColor: '#f5f5f5' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 10, fontSize: 16, color: '#666' },
+
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#BBCCDC',
-    padding: 16,
-    width: 354,
-    top: 16,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    height: 100,
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0'
   },
-  textSection: { flex: 1, gap: 4, left: 10 },
-  controlsSection: { flex: 1.5, alignItems: 'flex-end', gap: 10 },
-  title: { fontSize: 18, fontWeight: 'bold', color: '#2a2a2a' },
-  subTitle: { fontSize: 14, color: '#555' },
-  price: { fontSize: 16, fontWeight: 'bold', marginTop: 4 },
-  optionRow: {
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#333' },
+  cartButton: {
+    backgroundColor: '#4189C8',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8
+  },
+  cartButtonText: { color: '#fff', fontWeight: 'bold' },
+
+  filtersContainer: { padding: 20, backgroundColor: '#fff' },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    fontSize: 16
+  },
+  filterButtons: { flexDirection: 'row', gap: 8 },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#4189C8'
+  },
+  filterButtonActive: { backgroundColor: '#4189C8' },
+  filterButtonText: { color: '#4189C8', fontWeight: '500' },
+  filterButtonTextActive: { color: '#fff' },
+
+  productsList: { padding: 20 },
+  productCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  productInfo: { marginBottom: 16 },
+  productName: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  productWeight: { fontSize: 14, color: '#666', marginBottom: 4 },
+  productDescription: { fontSize: 14, color: '#666', marginBottom: 8, lineHeight: 20 },
+  productPrice: { fontSize: 20, fontWeight: 'bold', color: '#4189C8', marginBottom: 8 },
+
+  stockInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  stockText: { fontSize: 14, color: '#4CAF50', fontWeight: '500' },
+  outOfStockText: { color: '#F44336' },
+  optionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12
+  },
+  optionText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+
+  cartControls: { borderTopWidth: 1, borderTopColor: '#e0e0e0', paddingTop: 16 },
+  quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-    top: 35,
-    right: 14,
-    borderRadius: 6,
-    borderWidth: 1.7,
-    borderColor: 'black',
-  },
-  optionButton: {
-    flex: 1,
-    paddingVertical: 2,
-    paddingHorizontal: 9,
-    borderRadius: 6,
-    alignItems: 'center',
-    backgroundColor: '#ecececff',
-    right: 10,
-    borderColor: '#313030ff',
-    borderWidth: 1.7,
-  },
-  optionButtonActive: { backgroundColor: '#599feaff' },
-  optionText: { color: '#000000ff', fontWeight: '500', top: 1 },
-  cartRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  quantityControl: {
-    flexDirection: 'column',
     justifyContent: 'center',
-    paddingVertical: 4,
-    gap: 4,
-    height: 75,
-    bottom: 27,
-    right: 12,
-    borderColor: 'black',
-    borderRadius: 1,
+    marginBottom: 12
   },
-  qtyBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: '#ddd',
-    borderColor: 'black',
-    borderRadius: 4,
-  },
-  qtyText: { fontSize: 16, fontWeight: 'bold', borderRadius: 2 },
-  qtyNumber: { width: 32, textAlign: 'center', fontSize: 16 },
-  addToCartBtn: {
-    backgroundColor: '#007aff',
-    borderRadius: 10,
-    height: 40,
-    bottom: 7,
-    right: 11,
-  },
-   flyingItem: {
-    backgroundColor: '#007aff',
+  quantityButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 3,
-    elevation: 5,
+    justifyContent: 'center'
   },
-  flyingImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-  },
-  flyingText: {
-    color: 'white',
+  quantityButtonText: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  quantityText: {
+    fontSize: 18,
     fontWeight: 'bold',
-    fontSize: 16,
+    color: '#333',
+    marginHorizontal: 20,
+    minWidth: 30,
+    textAlign: 'center'
   },
+
+  addToCartButton: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center'
+  },
+  addToCartButtonDisabled: { backgroundColor: '#ccc' },
+  addToCartButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  addToCartButtonTextDisabled: { color: '#999' },
+
+  outOfStockContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingTop: 16,
+    alignItems: 'center'
+  },
+
+  emptyContainer: { alignItems: 'center', padding: 40 },
+  emptyText: { fontSize: 16, color: '#666' }
 });
+
+export default HomeScreen;

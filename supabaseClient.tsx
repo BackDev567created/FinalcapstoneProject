@@ -1,15 +1,12 @@
-// supabaseClient.js
+// supabaseClient.tsx
 import { createClient } from '@supabase/supabase-js';
 
-// ⛳ Replace these with values from Supabase → Project → Settings → API
-const SUPABASE_URL = 'https://yfpfhjyxdesqffxebmze.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmcGZoanl4ZGVzcWZmeGVibXplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NTcyMTYsImV4cCI6MjA2OTMzMzIxNn0.PMedmP5LeFOE4KNmMBwE-h1MUaQ7NyfCaaMu_SVpw0A';
+// Load environment variables
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key-here';
 
-// ⛳ Add your service role key here (get it from Supabase → Project → Settings → API)
-const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmcGZoanl4ZGVzcWZmeGVibXplIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Mzc1NzIxNiwiZXhwIjoyMDY5MzMzMjE2fQ.Fx0yt_qyUdcc9O8bvIT6mjxaylGCIjt3cOszCWXCIzM'; // Replace with your actual service role key
-
-// Regular client for most operations (existing)
+// Regular client for most operations
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// New admin client for bypassing RLS (add this)
-export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+// Admin client for bypassing RLS (optional)
+export const supabaseAdmin = supabase; // Use same client for now

@@ -33,32 +33,19 @@ const SigninScreen = () => {
 
   const checkEmailExists = async (email: string): Promise<boolean> => {
     try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+      // Check if email exists in users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
         .select('email')
-        .eq('email', email)
+        .eq('email', email.toLowerCase())
         .maybeSingle();
 
-      if (profileError) {
-        console.error('Error checking email in profiles:', profileError.message);
-        throw profileError;
+      if (userError) {
+        console.error('Error checking email in users:', userError.message);
+        return false; // Don't throw, just return false for better UX
       }
 
-      if (profileData) {
-        return true;
-      }
-
-      const { data: authData, error: authError } = await supabase.rpc(
-        'check_user_exists',
-        { user_email: email.toLowerCase() }
-      );
-
-      if (authError) {
-        console.error('Error checking auth users:', authError.message);
-        return false;
-      }
-
-      return authData || false;
+      return !!userData; // Return true if user exists, false otherwise
     } catch (error) {
       console.error('Error checking email existence:', error);
       return false;
